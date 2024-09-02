@@ -2,6 +2,7 @@ package io.th0rgal.oraxen.config;
 
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.font.Glyph;
+import io.th0rgal.oraxen.hook.PackGeneratorPluginHook;
 import io.th0rgal.oraxen.items.ItemBuilder;
 import io.th0rgal.oraxen.items.ItemParser;
 import io.th0rgal.oraxen.items.ItemTemplate;
@@ -12,6 +13,7 @@ import io.th0rgal.oraxen.utils.OraxenYaml;
 import io.th0rgal.oraxen.utils.Utils;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import ltd.lemongaming.packgenerator.annotation.Resource;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -249,9 +251,11 @@ public class ConfigsManager {
                 ConfigurationSection itemSection = configuration.getConfigurationSection(key);
                 if (itemSection == null) continue;
                 ConfigurationSection packSection = itemSection.getConfigurationSection("Pack");
-                Material material = Material.getMaterial(itemSection.getString("material", ""));
+                String resourceName = itemSection.getString("resource", "");
+                Resource resource = PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
+                Material material = resource != null ? Material.matchMaterial(resource.material().name()) : Material.getMaterial(itemSection.getString("material", ""));
                 if (packSection == null || material == null) continue;
-                int modelData = packSection.getInt("custom_model_data", -1);
+                int modelData = resource != null ? resource.id() : packSection.getInt("custom_model_data", -1);
                 String model = getItemModelFromConfigurationSection(packSection);
                 if (modelData == -1) continue;
                 if (assignedModelDatas.containsKey(material) && assignedModelDatas.get(material).containsKey(modelData)) {

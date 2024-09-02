@@ -204,6 +204,7 @@ bukkit {
         "CrateReloaded", "ItemBridge", "WorldEdit", "WorldGuard", "Towny", "Factions", "Lands", "PlotSquared",
         "NBTAPI", "ModelEngine", "ViaBackwards", "HuskClaims", "HuskTowns", "BentoBox"
     )
+    depend = listOf("PackGenerator")
     loadBefore = listOf("Realistic_World")
     foliaSupported = true
     permissions.create("oraxen.command") {

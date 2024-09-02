@@ -65,7 +65,7 @@ public class ResourcePack {
         if (Settings.GENERATE_DEFAULT_ASSETS.toBool()) extractDefaultFolders();
         extractRequired();
 
-        if (!Settings.GENERATE.toBool()) return;
+        if (true || !Settings.GENERATE.toBool()) return;
 
         if (Settings.HIDE_SCOREBOARD_NUMBERS.toBool() && PluginUtils.isEnabled("HappyHUD")) {
             Logs.logError("HappyHUD detected with hide_scoreboard_numbers enabled!");
