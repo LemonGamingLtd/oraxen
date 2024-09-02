@@ -21,8 +21,8 @@ val SUPPORTED_VERSIONS: List<NMSVersion> = listOf(
     "v1_18_R2" toNms "1.18.2-R0.1-SNAPSHOT",
     "v1_19_R1" toNms "1.19.2-R0.1-SNAPSHOT",
     "v1_19_R2" toNms "1.19.3-R0.1-SNAPSHOT",
-    "v1_19_R3" toNms "1.19.4-R0.1-SNAPSHOT",*/
-    "v1_20_R1" toNms "1.20.1-R0.1-SNAPSHOT",
+    "v1_19_R3" toNms "1.19.4-R0.1-SNAPSHOT",
+    "v1_20_R1" toNms "1.20.1-R0.1-SNAPSHOT",*/
     "v1_20_R2" toNms "1.20.2-R0.1-SNAPSHOT",
     "v1_20_R3" toNms "1.20.4-R0.1-SNAPSHOT",
     "v1_20_R4" toNms "1.20.6-R0.1-SNAPSHOT",
@@ -108,7 +108,7 @@ allprojects {
 
         implementation("com.github.stefvanschie.inventoryframework:IF_Folia:0.10.14-SNAPSHOT")
         implementation(files("../libs/compile-folia/custom-block-data-2.2.2.jar"))
-        implementation("com.jeff_media:MorePersistentDataTypes:2.4.0")
+        implementation("com.jeff-media:MorePersistentDataTypes:2.4.0")
 
         implementation("com.jeff-media:persistent-data-serializer:1.0")
         implementation("org.jetbrains:annotations:24.1.0") { isTransitive = false }
