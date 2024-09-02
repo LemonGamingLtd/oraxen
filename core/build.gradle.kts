@@ -15,10 +15,17 @@ tasks {
 
 repositories {
     maven("https://papermc.io/repo/repository/maven-public/") // Paper
+    maven("https://repo.lemongaming.ltd/repository/maven-public/") {
+        credentials {
+            username = providers.gradleProperty("lgNexusUser").get()
+            password = providers.gradleProperty("lgNexusPass").get()
+        }
+    }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
+    compileOnly("ltd.lemongaming:packgenerator-api:1.38.0")
 }
 
 java {
