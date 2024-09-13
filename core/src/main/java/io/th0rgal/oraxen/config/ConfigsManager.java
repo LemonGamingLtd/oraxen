@@ -253,10 +253,13 @@ public class ConfigsManager {
                 ConfigurationSection packSection = itemSection.getConfigurationSection("Pack");
                 String resourceName = itemSection.getString("resource", "");
                 Resource resource = PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
+                if (resource != null) {
+                    Logs.logInfo("Successfully found a PackGenerator resource '%s' for item: %s".formatted(resource.name(), key));
+                }
                 Material material = resource != null ? Material.matchMaterial(resource.material().name()) : Material.getMaterial(itemSection.getString("material", ""));
                 if (packSection == null || material == null) continue;
                 int modelData = resource != null ? resource.id() : packSection.getInt("custom_model_data", -1);
-                String model = getItemModelFromConfigurationSection(packSection);
+                String model = resource != null ? resource.getResourcePath() : getItemModelFromConfigurationSection(packSection);
                 if (modelData == -1) continue;
                 if (assignedModelDatas.containsKey(material) && assignedModelDatas.get(material).containsKey(modelData)) {
                     if (assignedModelDatas.get(material).get(modelData).equals(model)) continue;

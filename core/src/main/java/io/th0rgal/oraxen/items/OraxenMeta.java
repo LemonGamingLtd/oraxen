@@ -3,9 +3,12 @@ package io.th0rgal.oraxen.items;
 import io.th0rgal.oraxen.config.Settings;
 import io.th0rgal.oraxen.utils.Utils;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import ltd.lemongaming.packgenerator.annotation.CustomModel;
+import ltd.lemongaming.packgenerator.annotation.Resource;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

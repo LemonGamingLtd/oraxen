@@ -7,7 +7,7 @@ import java.util.*;
 
 public class ModelData {
 
-    public static final int STARTING_CMD = 1000;
+    public static final int STARTING_CMD = 0;
     private final Material type;
     private final int modelData;
     public static final Map<Material, Map<String, Integer>> DATAS = new HashMap<>();

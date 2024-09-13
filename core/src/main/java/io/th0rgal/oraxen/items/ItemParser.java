@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.compatibilities.provided.ecoitems.WrappedEcoItem;
 import io.th0rgal.oraxen.compatibilities.provided.mmoitems.WrappedMMOItem;
 import io.th0rgal.oraxen.compatibilities.provided.mythiccrucible.WrappedCrucibleItem;
 import io.th0rgal.oraxen.config.Settings;
+import io.th0rgal.oraxen.hook.PackGeneratorPluginHook;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
@@ -13,6 +14,8 @@ import io.th0rgal.oraxen.utils.PotionUtils;
 import io.th0rgal.oraxen.utils.Utils;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
+import ltd.lemongaming.packgenerator.annotation.CustomModel;
+import ltd.lemongaming.packgenerator.annotation.Resource;
 import net.kyori.adventure.key.Key;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -65,11 +68,23 @@ public class ItemParser {
         else if (section.isString("ecoitem_id")) ecoItem = new WrappedEcoItem(section.getString("ecoitem_id"));
         else if (mmoSection != null) mmoItem = new WrappedMMOItem(mmoSection);
 
-        Material material = Material.getMaterial(section.getString("material", ""));
+        String resourceName = section.getString("resource", "");
+        CustomModel resource = (CustomModel) PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
+        if (resource != null) {
+            Logs.logInfo("Successfully found a PackGenerator resource '%s' for item: %s".formatted(resource.name(), section.getName()));
+        }
+        Material material = resource != null ? Material.matchMaterial(resource.material().name()) : Material.getMaterial(section.getString("material", ""));
         if (material == null) material = usesTemplate() ? templateItem.type : Material.PAPER;
         type = material;
 
         oraxenMeta = new OraxenMeta();
+
+        if (resource != null) {
+            MODEL_DATAS_BY_ID.put(section.getName(),
+                new ModelData(type, resource.getModel(), resource.id()));
+            return;
+        }
+
         if (section.isConfigurationSection("Pack")) {
             ConfigurationSection packSection = section.getConfigurationSection("Pack");
             oraxenMeta.setPackInfos(packSection);
@@ -357,19 +372,22 @@ public class ItemParser {
             }
         }
 
-        if (oraxenMeta.hasPackInfos()) {
-            int customModelData;
-            if (MODEL_DATAS_BY_ID.containsKey(section.getName())) {
-                customModelData = MODEL_DATAS_BY_ID.get(section.getName()).getModelData();
-            } else {
-                customModelData = ModelData.generateId(oraxenMeta.getModelName(), type);
-                configUpdated = true;
-                if (!Settings.DISABLE_AUTOMATIC_MODEL_DATA.toBool())
-                    section.getConfigurationSection("Pack").set("custom_model_data", customModelData);
+        //if (oraxenMeta.hasPackInfos()) {
+            ModelData modelData = MODEL_DATAS_BY_ID.get(section.getName());
+            if (modelData == null) {
+                return;
             }
-            item.setCustomModelData(customModelData);
-            oraxenMeta.setCustomModelData(customModelData);
-        }
+            //if (MODEL_DATAS_BY_ID.containsKey(section.getName())) {
+            //    customModelData = MODEL_DATAS_BY_ID.get(section.getName()).getModelData();
+            //} else {
+            //    customModelData = ModelData.generateId(oraxenMeta.getModelName(), type);
+            //    configUpdated = true;
+            //    if (false && !Settings.DISABLE_AUTOMATIC_MODEL_DATA.toBool())
+            //        section.getConfigurationSection("Pack").set("custom_model_data", customModelData);
+            //}
+            item.setCustomModelData(modelData.getModelData());
+            //oraxenMeta.setCustomModelData(customModelData);
+        //}
     }
 
     public boolean isConfigUpdated() {
