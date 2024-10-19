@@ -69,7 +69,7 @@ public class ItemParser {
         else if (mmoSection != null) mmoItem = new WrappedMMOItem(mmoSection);
 
         String resourceName = section.getString("resource", "");
-        CustomModel resource = (CustomModel) PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
+        CustomModel resource = PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
         if (resource != null) {
             Logs.logInfo("Successfully found a PackGenerator resource '%s' for item: %s".formatted(resource.name(), section.getName()));
         }
