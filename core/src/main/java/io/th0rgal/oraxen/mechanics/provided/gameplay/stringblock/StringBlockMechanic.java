@@ -1,6 +1,7 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock;
 
 import io.th0rgal.oraxen.compatibilities.provided.blocklocker.BlockLockerMechanic;
+import io.th0rgal.oraxen.hook.PackGeneratorPluginHook;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.light.LightMechanic;
@@ -8,6 +9,8 @@ import io.th0rgal.oraxen.mechanics.provided.gameplay.limitedplacing.LimitedPlaci
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingMechanic;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
+import io.th0rgal.oraxen.utils.logs.Logs;
+import ltd.lemongaming.packgenerator.annotation.CustomModel;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
@@ -37,8 +40,14 @@ public class StringBlockMechanic extends Mechanic {
          */
         super(mechanicFactory, section);
 
-        model = section.getString("model");
-        customVariation = section.getInt("custom_variation");
+        String resourceName = section.getString("resource", "");
+        CustomModel resource = PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
+        if (resource != null) {
+            Logs.logInfo("Successfully found a PackGenerator resource '%s' for item: %s".formatted(resource.name(), section.getName()));
+        }
+
+        model = resource != null ? "custom/" + resource.getModel() : section.getString("model");
+        customVariation = resource != null ? resource.id() : section.getInt("custom_variation");
         isTall = section.getBoolean("is_tall", false);
         hardness = section.getInt("hardness", 1);
         light = new LightMechanic(section);

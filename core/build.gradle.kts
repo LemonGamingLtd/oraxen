@@ -25,7 +25,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
-    compileOnly("ltd.lemongaming:packgenerator-api:1.38.0")
+    compileOnly("ltd.lemongaming:packgenerator-api:1.40.0")
 }
 
 java {

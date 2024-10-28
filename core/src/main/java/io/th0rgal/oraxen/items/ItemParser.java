@@ -15,7 +15,6 @@ import io.th0rgal.oraxen.utils.Utils;
 import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import ltd.lemongaming.packgenerator.annotation.CustomModel;
-import ltd.lemongaming.packgenerator.annotation.Resource;
 import net.kyori.adventure.key.Key;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
