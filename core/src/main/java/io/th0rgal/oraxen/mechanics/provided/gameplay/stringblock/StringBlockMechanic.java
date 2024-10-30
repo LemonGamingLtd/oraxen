@@ -43,7 +43,7 @@ public class StringBlockMechanic extends Mechanic {
         String resourceName = section.getString("resource", "");
         CustomModel resource = PackGeneratorPluginHook.getCustomModel(resourceName).orElse(null);
         if (resource != null) {
-            Logs.logInfo("Successfully found a PackGenerator resource '%s' for item: %s".formatted(resource.name(), section.getName()));
+            Logs.logInfo("Successfully found a PackGenerator resource '%s' for tripwire: %s".formatted(resource.name(), resource.id()));
         }
 
         model = resource != null ? "custom/" + resource.getModel() : section.getString("model");
