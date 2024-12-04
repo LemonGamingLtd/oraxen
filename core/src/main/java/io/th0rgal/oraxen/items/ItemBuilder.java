@@ -9,6 +9,7 @@ import io.th0rgal.oraxen.compatibilities.provided.ecoitems.WrappedEcoItem;
 import io.th0rgal.oraxen.compatibilities.provided.mmoitems.WrappedMMOItem;
 import io.th0rgal.oraxen.compatibilities.provided.mythiccrucible.WrappedCrucibleItem;
 import io.th0rgal.oraxen.config.Settings;
+import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.*;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -18,15 +19,14 @@ import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.damage.DamageType;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.TropicalFish;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemRarity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.*;
-import org.bukkit.inventory.meta.components.FoodComponent;
-import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
-import org.bukkit.inventory.meta.components.ToolComponent;
+import org.bukkit.inventory.meta.components.*;
 import org.bukkit.inventory.meta.trim.ArmorTrim;
 import org.bukkit.inventory.meta.trim.TrimMaterial;
 import org.bukkit.inventory.meta.trim.TrimPattern;
@@ -67,14 +67,15 @@ public class ItemBuilder {
     private Set<ItemFlag> itemFlags;
     private boolean hasAttributeModifiers;
     private Multimap<Attribute, AttributeModifier> attributeModifiers;
-    private boolean hasCustomModelData;
-    private int customModelData;
+    @Nullable private Integer customModelData;
     private List<String> lore;
     private ItemStack finalItemStack;
 
     // 1.20.5+ properties
     @Nullable
     private FoodComponent foodComponent;
+    @Nullable
+    private Object consumableComponent;
     @Nullable
     private ToolComponent toolComponent;
     @Nullable
@@ -97,6 +98,24 @@ public class ItemBuilder {
     // 1.21+ properties
     @Nullable
     private JukeboxPlayableComponent jukeboxPlayable;
+
+    // 1.21.2+ properties
+    @Nullable
+    private EquippableComponent equippableComponent;
+    @Nullable
+    private Boolean isGlider;
+    @Nullable
+    private UseCooldownComponent useCooldownComponent;
+    @Nullable
+    private ItemStack useRemainder;
+    @Nullable
+    private Tag<DamageType> damageResistant;
+    @Nullable
+    private NamespacedKey tooltipStyle;
+    @Nullable
+    private NamespacedKey itemModel;
+    @Nullable
+    private Integer enchantable;
 
 
     public ItemBuilder(final Material material) {
@@ -168,9 +187,8 @@ public class ItemBuilder {
         if (hasAttributeModifiers)
             attributeModifiers = itemMeta.getAttributeModifiers();
 
-        hasCustomModelData = itemMeta.hasCustomModelData();
-        if (hasCustomModelData)
-            customModelData = itemMeta.getCustomModelData();
+
+        customModelData = itemMeta.hasCustomModelData() ? itemMeta.getCustomModelData() : null;
 
         if (itemMeta.hasLore()) {
             if (VersionUtil.isPaperServer()) lore = itemMeta.lore().stream().map(AdventureUtils.MINI_MESSAGE::serialize).toList();
@@ -201,6 +219,16 @@ public class ItemBuilder {
 
         if (VersionUtil.atOrAbove("1.21")) {
             jukeboxPlayable = itemMeta.hasJukeboxPlayable() ? itemMeta.getJukeboxPlayable() : null;
+        }
+
+        if (VersionUtil.atOrAbove("1.21.2")) {
+            equippableComponent = itemMeta.hasEquippable() ? itemMeta.getEquippable() : null;
+            useCooldownComponent = itemMeta.hasUseCooldown() ? itemMeta.getUseCooldown() : null;
+            useRemainder = itemMeta.hasUseRemainder() ? itemMeta.getUseRemainder() : null;
+            damageResistant = itemMeta.hasDamageResistant() ? itemMeta.getDamageResistant() : null;
+            itemModel = itemMeta.hasItemModel() ? itemMeta.getItemModel() : null;
+            enchantable = itemMeta.hasEnchantable() ? itemMeta.getEnchantable() : null;
+            isGlider = itemMeta.isGlider() ? true : null;
         }
 
     }
@@ -345,6 +373,107 @@ public class ItemBuilder {
         return this;
     }
 
+    public boolean hasItemModel() {
+        return VersionUtil.atOrAbove("1.21.2") && itemModel != null;
+    }
+
+    @Nullable
+    public NamespacedKey getItemModel() {
+        return itemModel;
+    }
+
+    public ItemBuilder setItemModel(final NamespacedKey itemModel) {
+        this.itemModel = itemModel;
+        return this;
+    }
+
+    public boolean hasTooltipStyle() {
+        return VersionUtil.atOrAbove("1.21.2") && tooltipStyle != null;
+    }
+
+    public NamespacedKey getTooltipStyle() {
+        return tooltipStyle;
+    }
+
+    public ItemBuilder setTooltipStyle(NamespacedKey tooltipStyle) {
+        this.tooltipStyle = tooltipStyle;
+        return this;
+    }
+
+    public boolean hasEnchantable() {
+        return VersionUtil.atOrAbove("1.21.2") && enchantable != null;
+    }
+
+    @Nullable
+    public Integer getEnchantable() {
+        return enchantable;
+    }
+
+    public ItemBuilder setEnchantable(Integer enchantable) {
+        this.enchantable = enchantable;
+        return this;
+    }
+
+    public boolean hasDamageResistant() {
+        return VersionUtil.atOrAbove("1.21.2") && damageResistant != null;
+    }
+
+    public Tag<DamageType> getDamageResistant() {
+        return damageResistant;
+    }
+
+    public ItemBuilder setDamageResistant(final Tag<DamageType> damageResistant) {
+        this.damageResistant = damageResistant;
+        return this;
+    }
+
+    public ItemBuilder setGlider(final boolean glider) {
+        this.isGlider = glider;
+        return this;
+    }
+
+    public boolean hasUseRemainder() {
+        return VersionUtil.atOrAbove("1.21.2") && useRemainder != null;
+    }
+
+    @Nullable
+    public ItemStack getUseRemainder() {
+        return useRemainder;
+    }
+
+    public ItemBuilder setUseRemainder(@Nullable final ItemStack itemStack) {
+        this.useRemainder = itemStack;
+        return this;
+    }
+
+    public boolean hasUseCooldownComponent() {
+        return VersionUtil.atOrAbove("1.21.2") && useCooldownComponent != null;
+    }
+
+    @Nullable
+    public UseCooldownComponent getUseCooldownComponent() {
+        return useCooldownComponent;
+    }
+
+    public ItemBuilder setUseCooldownComponent(@Nullable final UseCooldownComponent useCooldownComponent) {
+        this.useCooldownComponent = useCooldownComponent;
+        return this;
+    }
+
+    public boolean hasEquippableComponent() {
+        return VersionUtil.atOrAbove("1.21.2") && equippableComponent != null;
+    }
+
+    @Nullable
+    public EquippableComponent getEquippableComponent() {
+        return equippableComponent;
+    }
+
+    public ItemBuilder setEquippableComponent(@Nullable final EquippableComponent equippableComponent) {
+        this.equippableComponent = equippableComponent;
+        return this;
+    }
+
     public boolean hasFoodComponent() {
         return VersionUtil.atOrAbove("1.20.5") && foodComponent != null;
     }
@@ -354,8 +483,22 @@ public class ItemBuilder {
         return foodComponent;
     }
 
-    public ItemBuilder setFoodComponent(FoodComponent foodComponent) {
+    public ItemBuilder setFoodComponent(@Nullable FoodComponent foodComponent) {
         this.foodComponent = foodComponent;
+        return this;
+    }
+
+    public boolean hasConsumableComponent() {
+        return VersionUtil.atOrAbove("1.21.2") && consumableComponent != null;
+    }
+
+    @Nullable
+    public Object getConsumableComponent() {
+        return consumableComponent;
+    }
+
+    public <V> ItemBuilder setConsumableComponent(@Nullable V consumableComponent) {
+        this.consumableComponent = consumableComponent;
         return this;
     }
 
@@ -368,7 +511,7 @@ public class ItemBuilder {
         return toolComponent;
     }
 
-    public ItemBuilder setToolComponent(ToolComponent toolComponent) {
+    public ItemBuilder setToolComponent(@Nullable ToolComponent toolComponent) {
         this.toolComponent = toolComponent;
         return this;
     }
@@ -382,7 +525,7 @@ public class ItemBuilder {
         return jukeboxPlayable;
     }
 
-    public ItemBuilder setJukeboxPlayable(JukeboxPlayableComponent jukeboxPlayable) {
+    public ItemBuilder setJukeboxPlayable(@Nullable JukeboxPlayableComponent jukeboxPlayable) {
         this.jukeboxPlayable = jukeboxPlayable;
         return this;
     }
@@ -486,8 +629,6 @@ public class ItemBuilder {
     }
 
     public ItemBuilder setCustomModelData(final int customModelData) {
-        if (!hasCustomModelData)
-            hasCustomModelData = true;
         this.customModelData = customModelData;
         return this;
     }
@@ -596,6 +737,18 @@ public class ItemBuilder {
             if (hasJukeboxPlayable()) itemMeta.setJukeboxPlayable(jukeboxPlayable);
         }
 
+        if (VersionUtil.atOrAbove("1.21.2")) {
+            if (hasEquippableComponent()) itemMeta.setEquippable(equippableComponent);
+            if (hasUseCooldownComponent()) itemMeta.setUseCooldown(useCooldownComponent);
+            if (hasDamageResistant()) itemMeta.setDamageResistant(damageResistant);
+            if (hasTooltipStyle()) itemMeta.setTooltipStyle(tooltipStyle);
+            if (hasUseRemainder()) itemMeta.setUseRemainder(useRemainder);
+            if (hasEnchantable()) itemMeta.setEnchantable(enchantable);
+            if (itemModel != null) itemMeta.setItemModel(itemModel);
+            if (isGlider != null) itemMeta.setGlider(isGlider);
+
+        }
+
         handleVariousMeta(itemMeta);
         itemMeta.setUnbreakable(unbreakable);
 
@@ -623,8 +776,7 @@ public class ItemBuilder {
         if (hasAttributeModifiers)
             itemMeta.setAttributeModifiers(attributeModifiers);
 
-        if (hasCustomModelData)
-            itemMeta.setCustomModelData(customModelData);
+        itemMeta.setCustomModelData(customModelData);
 
         if (!persistentDataMap.isEmpty())
             for (final Map.Entry<PersistentDataSpace, Object> dataSpace : persistentDataMap.entrySet())
@@ -638,7 +790,7 @@ public class ItemBuilder {
         else itemMeta.setLore(lore);
 
         itemStack.setItemMeta(itemMeta);
-        finalItemStack = itemStack;
+        finalItemStack = NMSHandlers.getHandler().consumableComponent(itemStack, consumableComponent);
 
         return this;
     }
@@ -647,16 +799,19 @@ public class ItemBuilder {
         regen();
         OraxenItems.getMap().entrySet().stream().filter(entry -> entry.getValue().containsValue(this)).findFirst().ifPresent(entry -> {
             YamlConfiguration yamlConfiguration = OraxenYaml.loadConfiguration(entry.getKey());
+            String itemId = OraxenItems.getIdByItem(this);
             if (this.hasColor()) {
                 String color = this.color.getRed() + "," + this.color.getGreen() + "," + this.color.getBlue();
-                yamlConfiguration.set(OraxenItems.getIdByItem(this.build()) + ".color", color);
+                yamlConfiguration.set(itemId + ".color", color);
             }
             if (this.hasTrimPattern()) {
                 String trimPattern = this.getTrimPatternKey().asString();
-                yamlConfiguration.set(OraxenItems.getIdByItem(this.build()) + ".trim_pattern", trimPattern);
+                yamlConfiguration.set(itemId + ".trim_pattern", trimPattern);
             }
-            if (!getItemFlags().isEmpty()) {
-                yamlConfiguration.set(OraxenItems.getIdByItem(this.build()) + ".ItemFlags", this.itemFlags.stream().map(ItemFlag::name).toList());
+            if (!getItemFlags().isEmpty()) yamlConfiguration.set(itemId + ".ItemFlags", this.itemFlags.stream().map(ItemFlag::name).toList());
+            if (hasEquippableComponent()) {
+                yamlConfiguration.set(itemId + ".Components.equippable.slot", this.equippableComponent.getSlot().name());
+                yamlConfiguration.set(itemId + ".Components.equippable.model", this.equippableComponent.getModel().toString());
             }
             try {
                 yamlConfiguration.save(entry.getKey());

@@ -83,7 +83,7 @@ public class OraxenPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIBukkitConfig(this).silentLogs(true));
+        CommandAPI.onLoad(new CommandAPIBukkitConfig(this).silentLogs(true).skipReloadDatapacks(true));
     }
 
     @Override
@@ -125,7 +125,7 @@ public class OraxenPlugin extends JavaPlugin {
         resourcePack.generate();
         RecipesManager.load(this);
         invManager = new InvManager();
-        ArmorEquipEvent.registerListener(this);
+        if (!VersionUtil.atOrAbove("1.21.2")) ArmorEquipEvent.registerListener(this);
         new CommandsManager().loadCommands();
         postLoading();
         try {
