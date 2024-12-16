@@ -10,14 +10,14 @@ import org.bukkit.scheduler.BukkitTask;
 public abstract class Aura {
 
     protected final AuraMechanic mechanic;
-    private BukkitRunnable runnable;
+    private io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable runnable;
 
     protected Aura(AuraMechanic mechanic) {
         this.mechanic = mechanic;
     }
 
-    BukkitRunnable getRunnable() {
-        return new BukkitRunnable() {
+    io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable getRunnable() {
+        return new io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable() {
             @Override
             public void run() {
                 mechanic.players.forEach(Aura.this::spawnParticles);
@@ -31,12 +31,12 @@ public abstract class Aura {
 
     public void start() {
         runnable = getRunnable();
-        BukkitTask task = runnable.runTaskTimerAsynchronously(OraxenPlugin.get(), 0L, getDelay());
+        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = runnable.runTaskTimerAsynchronously(0L, getDelay());
         MechanicsManager.registerTask(mechanic.getFactory().getMechanicID(), task);
     }
 
     public void stop() {
-        runnable.cancel();
+        runnable.getAdaptedTask().cancel();
     }
 
 

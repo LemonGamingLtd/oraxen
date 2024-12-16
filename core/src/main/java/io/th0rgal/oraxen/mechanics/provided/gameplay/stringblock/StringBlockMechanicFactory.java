@@ -192,7 +192,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 
     public void registerSaplingMechanic() {
         if (sapling) return;
-        if (saplingTask != null) saplingTask.cancel();
+        if (saplingTask != null) saplingTask.getAdaptedTask().cancel();
 
         // Disabled for abit as OraxenItems.getItems() here
         // Dont register if there is no sapling in configs
@@ -206,7 +206,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 //        if (saplingList.isEmpty()) return;
 
         saplingTask = new SaplingTask(saplingGrowthCheckDelay);
-        saplingTask.runTaskTimer(OraxenPlugin.get(), 0, saplingGrowthCheckDelay);
+        saplingTask.runTaskTimer(0, saplingGrowthCheckDelay);
         sapling = true;
     }
 }

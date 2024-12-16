@@ -19,7 +19,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import static io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic.EVOLUTION_KEY;
 
-public class EvolutionTask extends BukkitRunnable {
+public class EvolutionTask extends io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable {
 
     private final FurnitureFactory furnitureFactory;
     private final int delay;
@@ -31,9 +31,10 @@ public class EvolutionTask extends BukkitRunnable {
 
     @Override
     public void run() {
-        for (World world : Bukkit.getWorlds())
-            for (Class<? extends Entity> entityClass : FurnitureMechanic.FurnitureType.furnitureEntityClasses())
-                for (Entity entity : world.getEntitiesByClass(entityClass)) {
+        for (World world : Bukkit.getWorlds()) for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+            io.th0rgal.oraxen.OraxenPlugin.get().getScheduler().runRegionTaskNow(chunk, () -> {
+            //for (Class<? extends Entity> entityClass : FurnitureMechanic.FurnitureType.furnitureEntityClasses())
+                for (Entity entity : chunk.getEntities()) { if (!FurnitureMechanic.FurnitureType.furnitureEntity().contains(entity.getType())) continue;
                     Location entityLoc = entity.getLocation();
                     PersistentDataContainer pdc = entity.getPersistentDataContainer();
                     if (!pdc.has(EVOLUTION_KEY, PersistentDataType.INTEGER)) continue;
@@ -89,6 +90,6 @@ public class EvolutionTask extends BukkitRunnable {
                         //OraxenFurniture.place(entity.getLocation(), evolution.getNextStage(), FurnitureMechanic.yawToRotation(entity.getLocation().getYaw()), entity.getFacing());
                         //nextMechanic.place(entityLoc, entityLoc.getYaw(), FurnitureMechanic.yawToRotation(entityLoc.getYaw()), entity.getFacing());
                     } else pdc.set(FurnitureMechanic.EVOLUTION_KEY, PersistentDataType.INTEGER, evolutionStep);
-                }
+                }});}
     }
 }

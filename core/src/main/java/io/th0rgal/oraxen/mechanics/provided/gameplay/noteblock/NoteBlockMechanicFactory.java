@@ -251,7 +251,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     public void registerFarmBlock() {
         if (farmBlock) return;
-        if (farmBlockTask != null) farmBlockTask.cancel();
+        if (farmBlockTask != null) farmBlockTask.getAdaptedTask().cancel();
 
 //        // Dont register if there is no farmblocks in configs
 //        List<String> farmblockList = new ArrayList<>();
@@ -264,7 +264,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 //        if (farmblockList.isEmpty()) return;
 
         farmBlockTask = new FarmBlockTask(farmBlockCheckDelay);
-        BukkitTask task = farmBlockTask.runTaskTimer(OraxenPlugin.get(), 0, farmBlockCheckDelay);
+        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = farmBlockTask.runTaskTimer(0, farmBlockCheckDelay);
         MechanicsManager.registerTask(getMechanicID(), task);
         farmBlock = true;
     }

@@ -75,16 +75,16 @@ public class FurnitureFactory extends MechanicFactory {
         if (evolvingFurnitures)
             return;
         if (evolutionTask != null)
-            evolutionTask.cancel();
+            evolutionTask.getAdaptedTask().cancel();
         evolutionTask = new EvolutionTask(this, evolutionCheckDelay);
-        BukkitTask task = evolutionTask.runTaskTimer(OraxenPlugin.get(), 0, evolutionCheckDelay);
+        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = evolutionTask.runTaskTimer(0, evolutionCheckDelay);
         MechanicsManager.registerTask(getMechanicID(), task);
         evolvingFurnitures = true;
     }
 
     public static void unregisterEvolution() {
         if (evolutionTask != null)
-            evolutionTask.cancel();
+            evolutionTask.getAdaptedTask().cancel();
     }
 
     @Override

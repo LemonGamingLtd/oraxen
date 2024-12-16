@@ -1,6 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling;
 
-import com.jeff_media.customblockdata.CustomBlockData;
+import io.th0rgal.oraxen.libs.customblockdata.CustomBlockData;//import com.jeff_media.customblockdata.CustomBlockData;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.compatibilities.provided.worldedit.WrappedWorldEdit;
@@ -18,7 +18,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import static io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingMechanic.SAPLING_KEY;
 
-public class SaplingTask extends BukkitRunnable {
+public class SaplingTask extends io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable {
 
     private final int delay;
 
@@ -30,7 +30,7 @@ public class SaplingTask extends BukkitRunnable {
     public void run() {
         if (!PluginUtils.isEnabled("WorldEdit")) return;
         for (World world : Bukkit.getWorlds()) {
-            for (Chunk chunk : world.getLoadedChunks()) {
+            for (Chunk chunk : world.getLoadedChunks()) { OraxenPlugin.get().getScheduler().runRegionTaskNow(chunk, () -> {
                 for (Block block : CustomBlockData.getBlocksWithCustomData(OraxenPlugin.get(), chunk)) {
                     PersistentDataContainer pdc = BlockHelpers.getPDC(block);
                     if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() == Material.TRIPWIRE) {
@@ -55,7 +55,7 @@ public class SaplingTask extends BukkitRunnable {
                     else if (pdc.has(SAPLING_KEY, PersistentDataType.INTEGER) && block.getType() != Material.TRIPWIRE) {
                         pdc.remove(SAPLING_KEY);
                     }
-                }
+                } });
             }
         }
     }

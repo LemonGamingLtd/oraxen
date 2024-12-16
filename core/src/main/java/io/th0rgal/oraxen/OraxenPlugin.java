@@ -30,7 +30,7 @@ import io.th0rgal.oraxen.utils.inventories.InvManager;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.protectionlib.ProtectionLib;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
-import org.bstats.bukkit.Metrics;
+//import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -54,6 +54,7 @@ public class OraxenPlugin extends JavaPlugin {
     private ResourcePack resourcePack;
     private ClickActionManager clickActionManager;
     public static boolean supportsDisplayEntities;
+    private io.th0rgal.oraxen.api.scheduler.SchedulerAdapter scheduler;
 
     public OraxenPlugin() {
         oraxen = this;
@@ -79,6 +80,7 @@ public class OraxenPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        scheduler = VersionUtil.isFoliaServer() ? new io.th0rgal.oraxen.api.scheduler.FoliaSchedulerAdapter() : new io.th0rgal.oraxen.api.scheduler.SpigotSchedulerAdapter();
         CommandAPI.onEnable();
         ProtectionLib.init(this);
         audience = BukkitAudiences.create(this);
@@ -134,7 +136,7 @@ public class OraxenPlugin extends JavaPlugin {
     private void postLoading() {
         new Metrics(this, 5371);
         new LU().l();
-        Bukkit.getScheduler().runTask(this, () -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
+        getScheduler().runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
     }
 
     @Override
@@ -214,5 +216,10 @@ public class OraxenPlugin extends JavaPlugin {
 
     public ClickActionManager getClickActionManager() {
         return clickActionManager;
+    }
+
+    public io.th0rgal.oraxen.api.scheduler.SchedulerAdapter
+    getScheduler() {
+        return scheduler;
     }
 }

@@ -1,4 +1,4 @@
-import java.text.SimpleDateFormat
+ import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.*
 import kotlin.io.path.Path
@@ -103,11 +103,11 @@ allprojects {
 
         implementation("team.unnamed:creative-api:1.7.3") { exclude("net.kyori") }
         implementation("dev.jorel:commandapi-bukkit-shade:$commandApiVersion")
-        implementation("org.bstats:bstats-bukkit:3.0.0")
+        //implementation("org.bstats:bstats-bukkit:3.0.0")
         implementation("org.glassfish:javax.json:1.1.4")
         implementation("io.th0rgal:protectionlib:1.8.0")
-        implementation("com.github.stefvanschie.inventoryframework:IF:0.10.12")
-        implementation("com.jeff-media:custom-block-data:2.2.2")
+        implementation(files("../libs/compile/IF-0.10.17.jar")) //implementation("com.github.stefvanschie.inventoryframework:IF:0.10.12")
+        //implementation("com.jeff-media:custom-block-data:2.2.2")
         implementation("com.jeff-media:MorePersistentDataTypes:2.4.0")
         implementation("com.jeff-media:persistent-data-serializer:1.0")
         implementation("org.jetbrains:annotations:24.1.0") { isTransitive = false }
@@ -195,8 +195,8 @@ bukkit {
     main = "io.th0rgal.oraxen.OraxenPlugin"
     version = pluginVersion
     name = "Oraxen"
-    apiVersion = "1.18"
-    authors = listOf("th0rgal", "https://github.com/oraxen/oraxen/blob/master/CONTRIBUTORS.md")
+    apiVersion = "1.20"
+    authors = listOf("th0rgal", "https://github.com/oraxen/oraxen/blob/master/CONTRIBUTORS.md", "Euphyllia (Folia)")
     softDepend = listOf(
         "ProtocolLib",
         "LightAPI", "PlaceholderAPI", "MythicMobs", "MMOItems", "MythicCrucible", "MythicMobs", "BossShopPro",
@@ -204,6 +204,7 @@ bukkit {
         "NBTAPI", "ModelEngine", "ViaBackwards", "HuskClaims", "HuskTowns", "BentoBox"
     )
     loadBefore = listOf("Realistic_World")
+    foliaSupported = true
     permissions.create("oraxen.command") {
         description = "Allows the player to use the /oraxen command"
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE

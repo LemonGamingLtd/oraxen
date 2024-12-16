@@ -59,7 +59,7 @@ public class UploadManager {
         }
 
         final long time = System.currentTimeMillis();
-        Bukkit.getScheduler().runTaskAsynchronously(OraxenPlugin.get(), () -> {
+        OraxenPlugin.get().getScheduler().runTaskAsynchronously(() -> {
             EventUtils.callEvent(new OraxenPackPreUploadEvent());
 
             Message.PACK_UPLOADING.log();
@@ -69,7 +69,7 @@ public class UploadManager {
             }
 
             OraxenPackUploadEvent uploadEvent = new OraxenPackUploadEvent(hostingProvider);
-            Bukkit.getScheduler().scheduleSyncDelayedTask(OraxenPlugin.get(), () ->
+            OraxenPlugin.get().getScheduler().runTask(() ->
                     Bukkit.getPluginManager().callEvent(uploadEvent));
 
             Message.PACK_UPLOADED.log(

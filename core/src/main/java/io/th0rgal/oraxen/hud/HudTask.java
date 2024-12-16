@@ -8,7 +8,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.List;
 
-public class HudTask extends BukkitRunnable {
+public class HudTask extends io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable {
 
     private final HudManager manager = OraxenPlugin.get().getHudManager();
 
