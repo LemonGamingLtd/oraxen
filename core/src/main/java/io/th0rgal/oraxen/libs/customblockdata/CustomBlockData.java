@@ -515,7 +515,11 @@ public class CustomBlockData implements PersistentDataContainer {
      */
     @Override
     public void copyTo(@NonNull PersistentDataContainer other, boolean replace) {
-
+        try {
+            pdc.copyTo(other, replace);
+        } catch (Throwable t) {
+            throw new UnsupportedOperationException("Requires 1.20.5+");
+        }
     }
 
     @NotNull

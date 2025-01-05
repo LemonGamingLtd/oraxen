@@ -191,7 +191,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     public BlockHitResult getPlayerPOVHitResult(Level world, net.minecraft.world.entity.player.Player player,
-            ClipContext.Fluid fluidHandling) {
+                                                ClipContext.Fluid fluidHandling) {
         float f = player.getXRot();
         float g = player.getYRot();
         Vec3 vec3 = player.getEyePosition();
@@ -238,7 +238,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
      * .forEach(block -> list.add(BuiltInRegistries.BLOCK.getId(block.value())));
      * } else pair.getSecond().forEach(block ->
      * list.add(BuiltInRegistries.BLOCK.getId(block.value())));
-     * 
+     *
      * return Map.of(pair.getFirst().location(), list);
      * }).collect(HashMap::new, Map::putAll, Map::putAll);
      * }
@@ -272,13 +272,13 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     public void consumableComponent(ItemBuilder item, ConfigurationSection section) {
         Consumable.Builder consumable = Consumable.builder();
         Consumable template = Optional.ofNullable(CraftItemStack.asNMSCopy(new ItemStack(item.getType()))
-                .getComponents().get(DataComponents.CONSUMABLE))
+                        .getComponents().get(DataComponents.CONSUMABLE))
                 .orElse(Consumable.builder().build());
 
         // Basic properties
         consumable.consumeSeconds((float) section.getDouble("consume_seconds", template.consumeSeconds()));
         consumable.animation(Optional.ofNullable(EnumUtils.getEnum(ItemUseAnimation.class,
-                section.getString("animation", "").toUpperCase()))
+                        section.getString("animation", "").toUpperCase()))
                 .orElse(template.animation()));
         consumable.hasConsumeParticles(section.getBoolean("has_consume_particles", template.hasConsumeParticles()));
 
