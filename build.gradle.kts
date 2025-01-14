@@ -9,25 +9,20 @@ plugins {
     //id("com.github.johnrengelman.shadow") version "8.1.1"
     id("xyz.jpenilla.run-paper") version "2.3.1"
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0" // Generates plugin.yml
-    id("io.papermc.paperweight.userdev") version "1.7.4" apply false
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.11" apply false
     id("io.github.goooler.shadow") version "8.1.8"
-    alias(libs.plugins.mia.publication)
 }
 
 class NMSVersion(val nmsVersion: String, val serverVersion: String)
 infix fun String.toNms(that: String): NMSVersion = NMSVersion(this, that)
 val SUPPORTED_VERSIONS: List<NMSVersion> = listOf(
-    //"v1_18_R1" toNms "1.18.1-R0.1-SNAPSHOT",
-    //"v1_18_R2" toNms "1.18.2-R0.1-SNAPSHOT",
-    //"v1_19_R1" toNms "1.19.2-R0.1-SNAPSHOT",
-    //"v1_19_R2" toNms "1.19.3-R0.1-SNAPSHOT",
-    //"v1_19_R3" toNms "1.19.4-R0.1-SNAPSHOT",
     "v1_20_R1" toNms "1.20.1-R0.1-SNAPSHOT",
     "v1_20_R2" toNms "1.20.2-R0.1-SNAPSHOT",
     "v1_20_R3" toNms "1.20.4-R0.1-SNAPSHOT",
     "v1_20_R4" toNms "1.20.6-R0.1-SNAPSHOT",
     "v1_21_R1" toNms "1.21.1-R0.1-SNAPSHOT",
-    "v1_21_R2" toNms "1.21.3-R0.1-SNAPSHOT"
+    "v1_21_R2" toNms "1.21.3-R0.1-SNAPSHOT",
+    "v1_21_R3" toNms "1.21.4-R0.1-SNAPSHOT"
 )
 
 val compiled = (project.findProperty("oraxen_compiled")?.toString() ?: "true").toBoolean()
@@ -36,7 +31,7 @@ val devPluginPath = project.findProperty("oraxen_dev_plugin_path")?.toString()
 val foliaPluginPath = project.findProperty("oraxen_folia_plugin_path")?.toString()
 val spigotPluginPath = project.findProperty("oraxen_spigot_plugin_path")?.toString()
 val pluginVersion: String by project
-val commandApiVersion = "9.6.1"
+val commandApiVersion = "9.7.0"
 val adventureVersion = "4.17.0"
 val platformVersion = "4.3.4"
 val googleGsonVersion = "2.10.1"
@@ -49,7 +44,7 @@ allprojects {
     repositories {
         mavenCentral()
 
-        maven("https://papermc.io/repo/repository/maven-public/") // Paper
+        maven("https://repo.papermc.io/repository/maven-public/") // Paper
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") // Spigot
         maven("https://oss.sonatype.org/content/repositories/snapshots") // Because Spigot depends on Bungeecord ChatComponent-API
         maven("https://repo.dmulloy2.net/repository/public/") // ProtocolLib
@@ -105,7 +100,7 @@ allprojects {
         implementation("dev.jorel:commandapi-bukkit-shade:$commandApiVersion")
         implementation("org.bstats:bstats-bukkit:3.0.0")
         implementation("org.glassfish:javax.json:1.1.4")
-        implementation("io.th0rgal:protectionlib:1.7.0")
+        implementation("io.th0rgal:protectionlib:1.8.0")
         implementation("com.github.stefvanschie.inventoryframework:IF:0.10.12")
         implementation("com.jeff-media:custom-block-data:2.2.2")
         implementation("com.jeff-media:MorePersistentDataTypes:2.4.0")
@@ -189,7 +184,6 @@ tasks {
 
     compileJava.get().dependsOn(clean)
     build.get().dependsOn(shadowJar)
-    build.get().dependsOn(publishToMavenLocal)
 }
 
 bukkit {
@@ -198,7 +192,7 @@ bukkit {
     version = pluginVersion
     name = "Oraxen"
     apiVersion = "1.18"
-    authors = listOf("th0rgal", "boy0000")
+    authors = listOf("th0rgal", "https://github.com/oraxen/oraxen/blob/master/CONTRIBUTORS.md")
     softDepend = listOf(
         "ProtocolLib",
         "LightAPI", "PlaceholderAPI", "MythicMobs", "MMOItems", "MythicCrucible", "MythicMobs", "BossShopPro",

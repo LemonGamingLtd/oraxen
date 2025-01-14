@@ -14,7 +14,7 @@ tasks {
 }
 
 repositories {
-    maven("https://papermc.io/repo/repository/maven-public/") // Paper
+    maven("https://repo.papermc.io/repository/maven-public/") // Paper
     maven("https://repo.lemongaming.ltd/repository/maven-public/") {
         credentials {
             username = providers.gradleProperty("lgNexusUser").get()

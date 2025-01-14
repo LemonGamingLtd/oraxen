@@ -1,17 +1,16 @@
 plugins {
     id("java")
-    id("io.papermc.paperweight.userdev") version "1.7.4"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.11"
     id("io.github.goooler.shadow") version "8.1.8"
 }
 
 repositories {
-    maven("https://papermc.io/repo/repository/maven-public/") // Paper
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
     compileOnly(project(":core"))
-    paperweight.paperDevBundle("1.19.4-R0.1-SNAPSHOT")
-    pluginRemapper("net.fabricmc:tiny-remapper:0.10.3:fat")
+    paperweight.paperDevBundle("1.21.4-R0.1-SNAPSHOT")
 }
 
 tasks {
@@ -22,4 +21,4 @@ tasks {
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
-}
+} 
