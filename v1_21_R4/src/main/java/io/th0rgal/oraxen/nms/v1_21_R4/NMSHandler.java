@@ -1,4 +1,4 @@
-package io.th0rgal.oraxen.nms.v1_21_R3;
+package io.th0rgal.oraxen.nms.v1_21_R4;
 
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -75,7 +75,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     private final GlyphHandler glyphHandler;
 
     public NMSHandler() {
-        this.glyphHandler = new io.th0rgal.oraxen.nms.v1_21_R3.GlyphHandler();
+        this.glyphHandler = new io.th0rgal.oraxen.nms.v1_21_R4.GlyphHandler();
 
         // mineableWith tag handling
         NamespacedKey tagKey = NamespacedKey.fromString("mineable_with_key", OraxenPlugin.get());
@@ -118,7 +118,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         return VersionUtil.isPaperServer() && GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates;
     }
 
-    @Override // TODO Fix this
+    @Override
+    /* This method copies custom NBT data from one item to another */
     public ItemStack copyItemNBTTags(@NotNull ItemStack oldItem, @NotNull ItemStack newItem) {
         net.minecraft.world.item.ItemStack newNmsItem = CraftItemStack.asNMSCopy(newItem);
         net.minecraft.world.item.ItemStack oldItemStack = CraftItemStack.asNMSCopy(oldItem);
@@ -134,7 +135,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         CompoundTag oldTag = oldData.copyTag();
         CompoundTag newTag = newData.copyTag();
 
-        for (String key : oldTag.getAllKeys()) {
+        for (String key : oldTag.keySet()) {
             if (vanillaKeys.contains(key))
                 continue;
             Tag value = oldTag.get(key);
@@ -192,7 +193,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     public BlockHitResult getPlayerPOVHitResult(Level world, net.minecraft.world.entity.player.Player player,
-                                                ClipContext.Fluid fluidHandling) {
+            ClipContext.Fluid fluidHandling) {
         float f = player.getXRot();
         float g = player.getYRot();
         Vec3 vec3 = player.getEyePosition();
@@ -239,7 +240,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
      * .forEach(block -> list.add(BuiltInRegistries.BLOCK.getId(block.value())));
      * } else pair.getSecond().forEach(block ->
      * list.add(BuiltInRegistries.BLOCK.getId(block.value())));
-     *
+     * 
      * return Map.of(pair.getFirst().location(), list);
      * }).collect(HashMap::new, Map::putAll, Map::putAll);
      * }
@@ -425,13 +426,13 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     public void consumableComponent(ItemBuilder item, ConfigurationSection section) {
         Consumable.Builder consumable = Consumable.builder();
         Consumable template = Optional.ofNullable(CraftItemStack.asNMSCopy(new ItemStack(item.getType()))
-                        .getComponents().get(DataComponents.CONSUMABLE))
+                .getComponents().get(DataComponents.CONSUMABLE))
                 .orElse(Consumable.builder().build());
 
         // Basic properties
         consumable.consumeSeconds((float) section.getDouble("consume_seconds", template.consumeSeconds()));
         consumable.animation(Optional.ofNullable(EnumUtils.getEnum(ItemUseAnimation.class,
-                        section.getString("animation", "").toUpperCase()))
+                section.getString("animation", "").toUpperCase()))
                 .orElse(template.animation()));
         consumable.hasConsumeParticles(section.getBoolean("has_consume_particles", template.hasConsumeParticles()));
 
