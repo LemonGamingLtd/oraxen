@@ -31,7 +31,7 @@ public class EntityUtils {
     }
 
     public void teleport(@NotNull Location location, @NotNull Entity entity, PlayerTeleportEvent.TeleportCause cause) {
-        OraxenPlugin.getScheduler().runTask(SchedulerType.SYNC, entity, entityTask -> {
+        OraxenPlugin.get().getScheduler().runEntityTask(entity, () -> {
             if (VersionUtil.isPaperServer() || VersionUtil.isFoliaServer() && VersionUtil.atOrAbove("1.19.4")) {
                 entity.teleportAsync(location, cause);
             } else entity.teleport(location);
@@ -45,7 +45,7 @@ public class EntityUtils {
      * @param entity The entity to teleport
      */
     public static void teleport(@NotNull Location location, @NotNull Entity entity) {
-        OraxenPlugin.getScheduler().runTask(SchedulerType.SYNC, entity, entityTask -> {
+        OraxenPlugin.get().getScheduler().runEntityTask(entity, () -> {
             if (VersionUtil.atOrAbove("1.19.4") && (VersionUtil.isPaperServer() || VersionUtil.isFoliaServer())) {
                 entity.teleportAsync(location);
             } else entity.teleport(location);

@@ -1,5 +1,6 @@
 package io.th0rgal.oraxen.sound;
 
+import com.google.common.base.Enums;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.utils.AdventureUtils;
@@ -49,12 +50,7 @@ public class CustomSound {
 
         // Parse category
         String categoryStr = config.getString("category");
-        // TODO: Remove RECORD support as it was deprecated since 1.183.0
-        // fix "No enum constant org.bukkit.SoundCategory.RECORD" for old configs
-        // (1.183.0 or older),
-        this.category = categoryStr != null
-                ? categoryStr.toUpperCase(Locale.ROOT).equals("RECORD") ? SoundCategory.RECORDS
-                        : SoundCategory.valueOf(categoryStr.toUpperCase(Locale.ROOT))
+        this.category = categoryStr != null ? Enums.getIfPresent(SoundCategory.class, categoryStr.toUpperCase(Locale.ROOT)).orNull()
                 : SoundCategory.MASTER;
 
         this.subtitle = config.getString("subtitle");
