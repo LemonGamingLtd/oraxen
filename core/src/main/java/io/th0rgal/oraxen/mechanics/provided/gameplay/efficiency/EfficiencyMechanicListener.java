@@ -7,7 +7,6 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.wrappers.EnumWrappers;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
 import org.bukkit.Bukkit;
@@ -45,14 +44,14 @@ public class EfficiencyMechanicListener extends PacketAdapter {
             type = EnumWrappers.PlayerDigType.SWAP_HELD_ITEMS;
         }
         if (type == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK)
-                    OraxenPlugin.getScheduler().runTask(SchedulerType.SYNC, player, task ->
-                            player.addPotionEffect(new PotionEffect(mechanic.getType(),
-                                    20 * 60 * 5,
-                                    mechanic.getAmount() - 1,
-                                    false, false, false)), null);
-                else
-                    OraxenPlugin.getScheduler().runTask(SchedulerType.SYNC, player, task ->
-                            player.removePotionEffect(mechanic.getType()), null);
+            OraxenPlugin.get().getScheduler().runEntityTask(player, () ->
+                    player.addPotionEffect(new PotionEffect(mechanic.getType(),
+                            20 * 60 * 5,
+                            mechanic.getAmount() - 1,
+                            false, false, false)), null);
+        else
+            OraxenPlugin.get().getScheduler().runEntityTask(player, () ->
+                    player.removePotionEffect(mechanic.getType()), null);
     }
 
 }

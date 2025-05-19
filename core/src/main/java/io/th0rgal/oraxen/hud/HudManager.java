@@ -1,8 +1,6 @@
 package io.th0rgal.oraxen.hud;
 
 import com.jeff_media.morepersistentdatatypes.DataType;
-import fr.euphyllia.energie.model.SchedulerTaskInter;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.config.ConfigsManager;
 import io.th0rgal.oraxen.utils.AdventureUtils;
@@ -113,18 +111,18 @@ public class HudManager {
 
     public void registerTask() {
         if (hudTaskEnabled) return;
-        if (hudTask != null) hudTask.cancel();
+        if (hudTask != null) hudTask.getAdaptedTask().cancel();
         if (hudUpdateTime == 0) return;
         if (huds.isEmpty()) return;
 
         hudTask = new HudTask();
-        hudTask.runAtFixedRate(OraxenPlugin.get(), SchedulerType.SYNC, 0, hudUpdateTime);
+        hudTask.runTaskTimer(0, hudUpdateTime);
         hudTaskEnabled = true;
     }
 
     public void unregisterTask() {
         if (!hudTaskEnabled) return;
-        if (hudTask != null) hudTask.cancel();
+        if (hudTask != null) hudTask.getAdaptedTask().cancel();
         hudTaskEnabled = false;
     }
 

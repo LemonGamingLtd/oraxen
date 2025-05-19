@@ -1,7 +1,6 @@
 package io.th0rgal.oraxen.api;
 
 import com.jeff_media.morepersistentdatatypes.DataType;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.events.noteblock.OraxenNoteBlockBreakEvent;
 import io.th0rgal.oraxen.api.events.stringblock.OraxenStringBlockBreakEvent;
@@ -109,7 +108,7 @@ public class OraxenBlocks {
      * @return true if the itemID has a NoteBlockMechanic, otherwise false
      */
     public static boolean isOraxenNoteBlock(String itemID) {
-        return NoteBlockMechanicFactory.isEnabled() && !NoteBlockMechanicFactory.getInstance().isNotImplementedIn(itemID);
+        return !NoteBlockMechanicFactory.getInstance().isNotImplementedIn(itemID);
     }
 
     public static boolean isOraxenNoteBlock(ItemStack item) {
@@ -161,9 +160,6 @@ public class OraxenBlocks {
     }
 
     private static void placeNoteBlock(Location location, String itemID) {
-        if (!NoteBlockMechanicFactory.isEnabled()) {
-            return;
-        }
         NoteBlockMechanicFactory.setBlockModel(location.getBlock(), itemID);
         Block block = location.getBlock();
         PersistentDataContainer pdc = BlockHelpers.getPDC(block);
@@ -318,7 +314,7 @@ public class OraxenBlocks {
         if (mechanic.hasLight()) mechanic.getLight().removeBlockLight(block);
         if (mechanic.isTall()) blockAbove.setType(Material.AIR);
         block.setType(Material.AIR);
-        OraxenPlugin.getScheduler().runDelayed(SchedulerType.SYNC, block.getLocation(), schedulerTaskInter -> {
+        OraxenPlugin.get().getScheduler().runRegionTaskLater(block.getLocation(), () -> {
             StringBlockMechanicListener.fixClientsideUpdate(block.getLocation());
             if (blockAbove.getType() == Material.TRIPWIRE)
                 removeStringBlock(blockAbove, player, overrideDrop);

@@ -115,12 +115,12 @@ public class GlyphHandler implements io.th0rgal.oraxen.nms.GlyphHandler {
         try {
             bind(channelFutures, serverChannelHandler);
         } catch (IllegalArgumentException ex) {
-            new BukkitRunnable() {
+            new io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable() {
                 @Override
                 public void run() {
                     bind(finalChannelFutures, serverChannelHandler);
                 }
-            }.runTask(OraxenPlugin.get());
+            }.runTask();
         }
 
         if (VersionUtil.isPaperServer())

@@ -1,8 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock;
 
 import com.google.gson.JsonObject;
-import fr.euphyllia.energie.model.SchedulerTaskInter;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
@@ -194,7 +192,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 
     public void registerSaplingMechanic() {
         if (sapling) return;
-        if (saplingTask != null) saplingTask.cancel();
+        if (saplingTask != null) saplingTask.getAdaptedTask().cancel();
 
         // Disabled for abit as OraxenItems.getItems() here
         // Dont register if there is no sapling in configs
@@ -208,7 +206,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 //        if (saplingList.isEmpty()) return;
 
         saplingTask = new SaplingTask(saplingGrowthCheckDelay);
-        saplingTask.runAtFixedRate(OraxenPlugin.get(), SchedulerType.SYNC, 0, saplingGrowthCheckDelay);
+        saplingTask.runTaskTimer(0, saplingGrowthCheckDelay);
         sapling = true;
     }
 }

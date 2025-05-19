@@ -1,24 +1,23 @@
 package io.th0rgal.oraxen.mechanics.provided.cosmetic.aura.aura;
 
-import fr.euphyllia.energie.model.SchedulerTaskInter;
-import fr.euphyllia.energie.model.SchedulerType;
-import fr.euphyllia.energie.utils.SchedulerTaskRunnable;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.aura.AuraMechanic;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 public abstract class Aura {
 
     protected final AuraMechanic mechanic;
-    private SchedulerTaskRunnable runnable;
+    private io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable runnable;
 
     protected Aura(AuraMechanic mechanic) {
         this.mechanic = mechanic;
     }
 
-    SchedulerTaskRunnable getRunnable() {
-        return new SchedulerTaskRunnable() {
+    io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable getRunnable() {
+        return new io.th0rgal.oraxen.api.scheduler.AdaptedTaskRunnable() {
             @Override
             public void run() {
                 mechanic.players.forEach(Aura.this::spawnParticles);
@@ -32,12 +31,12 @@ public abstract class Aura {
 
     public void start() {
         runnable = getRunnable();
-        SchedulerTaskInter task = runnable.runAtFixedRate(OraxenPlugin.get(), SchedulerType.ASYNC, 0L, getDelay());
+        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = runnable.runTaskTimerAsynchronously(0L, getDelay());
         MechanicsManager.registerTask(mechanic.getFactory().getMechanicID(), task);
     }
 
     public void stop() {
-        runnable.cancel();
+        runnable.getAdaptedTask().cancel();
     }
 
 

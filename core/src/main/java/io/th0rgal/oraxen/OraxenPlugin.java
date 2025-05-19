@@ -3,9 +3,6 @@ package io.th0rgal.oraxen;
 import com.comphenix.protocol.ProtocolLibrary;
 import dev.jorel.commandapi.CommandAPI;
 import dev.jorel.commandapi.CommandAPIBukkitConfig;
-import fr.euphyllia.energie.Energie;
-import fr.euphyllia.energie.model.Scheduler;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.api.events.OraxenItemsLoadedEvent;
 import io.th0rgal.oraxen.commands.CommandsManager;
@@ -33,11 +30,11 @@ import io.th0rgal.oraxen.utils.inventories.InvManager;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.protectionlib.ProtectionLib;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+//import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -46,7 +43,6 @@ import java.util.jar.JarFile;
 public class OraxenPlugin extends JavaPlugin {
 
     private static OraxenPlugin oraxen;
-    private static Energie energie;
     private ConfigsManager configsManager;
     private ResourcesManager resourceManager;
     private BukkitAudiences audience;
@@ -58,6 +54,7 @@ public class OraxenPlugin extends JavaPlugin {
     private ResourcePack resourcePack;
     private ClickActionManager clickActionManager;
     public static boolean supportsDisplayEntities;
+    private io.th0rgal.oraxen.api.scheduler.SchedulerAdapter scheduler;
 
     public OraxenPlugin() {
         oraxen = this;
@@ -66,11 +63,6 @@ public class OraxenPlugin extends JavaPlugin {
     public static OraxenPlugin get() {
         return oraxen;
     }
-
-    public @NotNull static Scheduler getScheduler() {
-        return energie.getMinecraftScheduler();
-    }
-
 
     @Nullable
     public static JarFile getJarFile() {
@@ -88,7 +80,7 @@ public class OraxenPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        energie = new Energie(this);
+        scheduler = VersionUtil.isFoliaServer() ? new io.th0rgal.oraxen.api.scheduler.FoliaSchedulerAdapter() : new io.th0rgal.oraxen.api.scheduler.SpigotSchedulerAdapter();
         CommandAPI.onEnable();
         ProtectionLib.init(this);
         audience = BukkitAudiences.create(this);
@@ -144,9 +136,7 @@ public class OraxenPlugin extends JavaPlugin {
     private void postLoading() {
         new Metrics(this, 5371);
         new LU().l();
-        getScheduler().runTask(SchedulerType.SYNC, schedulerTaskInter -> {
-            Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent());
-        });
+        getScheduler().runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
     }
 
     @Override
@@ -226,5 +216,10 @@ public class OraxenPlugin extends JavaPlugin {
 
     public ClickActionManager getClickActionManager() {
         return clickActionManager;
+    }
+
+    public io.th0rgal.oraxen.api.scheduler.SchedulerAdapter
+    getScheduler() {
+        return scheduler;
     }
 }

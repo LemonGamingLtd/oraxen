@@ -1,7 +1,5 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
-import fr.euphyllia.energie.model.SchedulerTaskInter;
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
@@ -77,16 +75,16 @@ public class FurnitureFactory extends MechanicFactory {
         if (evolvingFurnitures)
             return;
         if (evolutionTask != null)
-            evolutionTask.cancel();
+            evolutionTask.getAdaptedTask().cancel();
         evolutionTask = new EvolutionTask(this, evolutionCheckDelay);
-        SchedulerTaskInter task = evolutionTask.runAtFixedRate(OraxenPlugin.get(), SchedulerType.SYNC,0, evolutionCheckDelay);
+        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = evolutionTask.runTaskTimer(0, evolutionCheckDelay);
         MechanicsManager.registerTask(getMechanicID(), task);
         evolvingFurnitures = true;
     }
 
     public static void unregisterEvolution() {
         if (evolutionTask != null)
-            evolutionTask.cancel();
+            evolutionTask.getAdaptedTask().cancel();
     }
 
     @Override

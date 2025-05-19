@@ -1,6 +1,9 @@
 package io.th0rgal.oraxen.utils;
 
 import io.th0rgal.oraxen.utils.logs.Logs;
+import org.apache.commons.lang3.Validate;
+import org.bukkit.Bukkit;
+import org.bukkit.Server;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -11,6 +14,7 @@ public class VersionUtil {
     private static final boolean IS_FOLIA;
 
     public enum NMSVersion {
+        v1_21_R4,
         v1_21_R3,
         v1_21_R2,
         v1_21_R1,
@@ -33,7 +37,8 @@ public class VersionUtil {
     static {
         IS_PAPER = hasClass("com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent");
         IS_FOLIA = hasClass("io.papermc.paper.threadedregions.RegionizedServer");
-
+        versionMap.put(NMSVersion.v1_21_R4,
+                Map.of(20, new MinecraftVersion("1.21.5")));
         versionMap.put(NMSVersion.v1_21_R3,
                 Map.of(19, new MinecraftVersion("1.21.4")));
         versionMap.put(NMSVersion.v1_21_R2,
@@ -75,9 +80,6 @@ public class VersionUtil {
         return IS_PAPER;
     }
 
-    /**
-     * @return true if the server is Folia or false of not
-     */
     public static boolean isFoliaServer() {
         return IS_FOLIA;
     }

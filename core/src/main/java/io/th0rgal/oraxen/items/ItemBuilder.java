@@ -12,6 +12,9 @@ import io.th0rgal.oraxen.config.Settings;
 import io.th0rgal.oraxen.nms.NMSHandler;
 import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.*;
+import io.th0rgal.oraxen.utils.logs.Logs;
+import io.th0rgal.oraxen.utils.AdventureUtils;
+import io.th0rgal.oraxen.utils.VersionUtil;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -118,6 +121,9 @@ public class ItemBuilder {
     private NamespacedKey itemModel;
     @Nullable
     private Integer enchantable;
+
+    // Generic components storage using String keys
+    private final Map<String, Object> genericComponents = new HashMap<>();
 
     public ItemBuilder(final Material material) {
         this(new ItemStack(material));
@@ -382,7 +388,18 @@ public class ItemBuilder {
         NamespacedKey key = NamespacedKey.fromString(trimPattern.asString());
         if (key == null)
             return null;
-        return Registry.TRIM_PATTERN.get(key);
+
+        // Only try to get trim pattern if running on Paper
+        if (VersionUtil.isPaperServer()) {
+            try {
+                return Registry.TRIM_PATTERN.get(key);
+            } catch (NoSuchMethodError e) {
+                // Registry.TRIM_PATTERN.get not available - this is expected on non-Paper
+                // servers
+                return null;
+            }
+        }
+        return null;
     }
 
     public ItemBuilder setTrimPattern(final Key trimKey) {
@@ -547,7 +564,19 @@ public class ItemBuilder {
     }
 
     public ItemBuilder setJukeboxPlayable(@Nullable JukeboxPlayableComponent jukeboxPlayable) {
-        this.jukeboxPlayable = jukeboxPlayable;
+        if (!VersionUtil.isPaperServer()) {
+            Logs.logWarning("JukeboxPlayable features are only available on Paper servers.");
+            return this;
+        }
+
+        try {
+            this.jukeboxPlayable = jukeboxPlayable;
+        } catch (Exception e) {
+            Logs.logWarning("Error setting JukeboxPlayable: This component is not available in your server version");
+            if (Settings.DEBUG.toBool()) {
+                e.printStackTrace();
+            }
+        }
         return this;
     }
 
@@ -656,8 +685,8 @@ public class ItemBuilder {
 
     public ItemBuilder addItemFlags(final ItemFlag... itemFlags) {
         if (this.itemFlags == null)
-            this.itemFlags = new HashSet<>();
-        this.itemFlags.addAll(Arrays.asList(itemFlags));
+            this.itemFlags = EnumSet.noneOf(ItemFlag.class); // Use EnumSet for better performance
+        Collections.addAll(this.itemFlags, itemFlags);
         return this;
     }
 
@@ -666,18 +695,24 @@ public class ItemBuilder {
     }
 
     public ItemBuilder addAttributeModifiers(final Attribute attribute, final AttributeModifier attributeModifier) {
-        if (!hasAttributeModifiers) {
+        if (attribute != null && attributeModifier != null) {
+            if (attributeModifiers == null) {
+                attributeModifiers = HashMultimap.create();
+            }
+            attributeModifiers.put(attribute, attributeModifier);
             hasAttributeModifiers = true;
-            attributeModifiers = HashMultimap.create();
         }
-        attributeModifiers.put(attribute, attributeModifier);
         return this;
     }
 
     public ItemBuilder addAllAttributeModifiers(final Multimap<Attribute, AttributeModifier> attributeModifiers) {
-        if (!hasAttributeModifiers)
+        if (!hasAttributeModifiers) {
             hasAttributeModifiers = true;
-        this.attributeModifiers.putAll(attributeModifiers);
+            this.attributeModifiers = HashMultimap.create();
+        }
+        if (attributeModifiers != null) {
+            this.attributeModifiers.putAll(attributeModifiers);
+        }
         return this;
     }
 
@@ -765,8 +800,16 @@ public class ItemBuilder {
         }
 
         if (VersionUtil.atOrAbove("1.21")) {
-            if (hasJukeboxPlayable())
-                itemMeta.setJukeboxPlayable(jukeboxPlayable);
+            if (hasJukeboxPlayable() && VersionUtil.isPaperServer()) {
+                try {
+                    itemMeta.setJukeboxPlayable(jukeboxPlayable);
+                } catch (NoSuchMethodError | UnsupportedOperationException e) {
+                    if (Settings.DEBUG.toBool()) {
+                        Logs.logWarning("Failed to set JukeboxPlayable - this feature requires Paper");
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
 
         if (VersionUtil.atOrAbove("1.21.2")) {
@@ -819,8 +862,9 @@ public class ItemBuilder {
             }
         }
 
-        if (hasAttributeModifiers)
+        if (hasAttributeModifiers && attributeModifiers != null) {
             itemMeta.setAttributeModifiers(attributeModifiers);
+        }
 
         itemMeta.setCustomModelData(customModelData);
 
@@ -1000,6 +1044,37 @@ public class ItemBuilder {
     public String toString() {
         // todo
         return super.toString();
+    }
+
+    /**
+     * Sets a generic component on this item
+     * 
+     * @param type      The component type (e.g. "food", "tool", etc.)
+     * @param component The component object
+     */
+    public void setComponent(String type, Object component) {
+        genericComponents.put(type, component);
+    }
+
+    /**
+     * Gets a generic component from this item
+     * 
+     * @param type The component type
+     * @return The component object, or null if not found
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getComponent(String type) {
+        return (T) genericComponents.get(type);
+    }
+
+    /**
+     * Checks if this item has a specific component
+     * 
+     * @param type The component type
+     * @return true if the component exists
+     */
+    public boolean hasComponent(String type) {
+        return genericComponents.containsKey(type);
     }
 
 }
