@@ -17,7 +17,7 @@ public class ConsoleAction extends Action<Player> {
 
     @Override
     public void run(@NotNull Player player, @NotNull Context<Player> context) {
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), getMeta().getParsedData(player, context));
+        Bukkit.getGlobalRegionScheduler().execute(io.th0rgal.oraxen.OraxenPlugin.get(), () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), getMeta().getParsedData(player, context)));
     }
 
 }
