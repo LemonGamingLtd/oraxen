@@ -37,21 +37,28 @@ public class CommandsParser {
             return;
         String playerName = player.getName();
 
-        if (consoleCommands != null)
-            for (String command : consoleCommands)
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%p%", playerName));
+        if (consoleCommands != null) {
+            Bukkit.getGlobalRegionScheduler().execute(io.th0rgal.oraxen.OraxenPlugin.get(), () -> {
+                for (String command : consoleCommands)
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%p%", playerName));
+            });
+        }
 
         if (playerCommands != null)
-            for (String command : playerCommands)
-                Bukkit.dispatchCommand(player, command.replace("%p%", playerName));
+            player.getScheduler().run(io.th0rgal.oraxen.OraxenPlugin.get(), scheduledTask -> {
+                for (String command : playerCommands)
+                    Bukkit.dispatchCommand(player, command.replace("%p%", playerName));
+            }, null);
 
         if (oppedPlayerCommands != null)
-            for (String command : oppedPlayerCommands) {
-                boolean wasOp = player.isOp();
-                player.setOp(true);
-                Bukkit.dispatchCommand(player, command.replace("%p%", playerName));
-                player.setOp(wasOp);
-            }
+            player.getScheduler().run(io.th0rgal.oraxen.OraxenPlugin.get(), scheduledTask -> {
+                for (String command : oppedPlayerCommands) {
+                    boolean wasOp = player.isOp();
+                    player.setOp(true);
+                    Bukkit.dispatchCommand(player, command.replace("%p%", playerName));
+                    player.setOp(wasOp);
+                }
+            }, null);
     }
 
 }
