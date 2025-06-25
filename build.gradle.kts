@@ -23,7 +23,8 @@ val SUPPORTED_VERSIONS: List<NMSVersion> = listOf(
     //"v1_21_R1" toNms "1.21.1-R0.1-SNAPSHOT",
     //"v1_21_R2" toNms "1.21.3-R0.1-SNAPSHOT",
     "v1_21_R3" toNms "1.21.4-R0.1-SNAPSHOT",
-    "v1_21_R4" toNms "1.21.5-R0.1-SNAPSHOT"
+    "v1_21_R4" toNms "1.21.5-R0.1-SNAPSHOT",
+    "v1_21_R5" toNms "1.21.6-R0.1-SNAPSHOT"
 )
 
 val compiled = (project.findProperty("oraxen_compiled")?.toString() ?: "true").toBoolean()
