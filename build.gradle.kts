@@ -95,6 +95,13 @@ allprojects {
             content { includeGroup("com.github.retrooper") }
         }
         mavenCentral()
+        maven {
+            credentials {
+                username = providers.gradleProperty("lgNexusUser").get()
+                password = providers.gradleProperty("lgNexusPass").get()
+            }
+            url = uri("https://repo.lemongaming.ltd/repository/maven-public/")
+        }
     }
 }
 

@@ -34,7 +34,9 @@ dependencies {
         exclude("net.kyori")
         exclude(group = "com.google.guava")
     }
-    compileOnly("ltd.lemongaming:packgenerator-api:1.40.0")
+    compileOnly("ltd.lemongaming:packgenerator-api:1.40.0") {
+        exclude("net.wesjd", "anvilgui")
+    }
 }
 
 java {

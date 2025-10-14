@@ -1,6 +1,5 @@
 package io.th0rgal.oraxen.utils;
 
-import fr.euphyllia.energie.model.SchedulerType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.Location;
