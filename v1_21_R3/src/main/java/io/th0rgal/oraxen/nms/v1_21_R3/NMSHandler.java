@@ -27,6 +27,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.common.ClientboundUpdateTagsPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.tags.TagNetworkSerialization;
@@ -37,6 +38,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemUseAnimation;
+import net.minecraft.world.item.JukeboxSong;
 import net.minecraft.world.item.component.Consumable;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.consume_effects.*;
@@ -45,9 +47,11 @@ import net.minecraft.world.item.context.DirectionalPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.EnumUtils;
+import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.SoundCategory;
 import org.bukkit.SoundGroup;
@@ -55,6 +59,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
@@ -86,23 +91,23 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         if (ChannelInitializeListenerHolder.hasListener(tagKey))
             return;
         ChannelInitializeListenerHolder.addListener(tagKey, (channel -> channel.pipeline().addBefore("packet_handler",
-                tagKey.asString(), new ChannelDuplexHandler() {
-                    Connection connection = (Connection) channel.pipeline().get("packet_handler");
-                    TagNetworkSerialization.NetworkPayload payload = createPayload();
+            tagKey.asString(), new ChannelDuplexHandler() {
+                Connection connection = (Connection) channel.pipeline().get("packet_handler");
+                TagNetworkSerialization.NetworkPayload payload = createPayload();
 
-                    @Override
-                    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
-                        if (msg instanceof ClientboundUpdateTagsPacket updateTagsPacket) {
-                            Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = updateTagsPacket
-                                    .getTags();
-                            if (NoteBlockMechanicFactory.isEnabled()
-                                    && NoteBlockMechanicFactory.getInstance().removeMineableTag())
-                                tags.put(Registries.BLOCK, payload);
-                            msg = new ClientboundUpdateTagsPacket(tags);
-                        }
-                        ctx.write(msg, promise);
+                @Override
+                public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+                    if (msg instanceof ClientboundUpdateTagsPacket updateTagsPacket) {
+                        Map<ResourceKey<? extends Registry<?>>, TagNetworkSerialization.NetworkPayload> tags = updateTagsPacket
+                            .getTags();
+                        if (NoteBlockMechanicFactory.isEnabled()
+                            && NoteBlockMechanicFactory.getInstance().removeMineableTag())
+                            tags.put(Registries.BLOCK, payload);
+                        msg = new ClientboundUpdateTagsPacket(tags);
                     }
-                })));
+                    ctx.write(msg, promise);
+                }
+            })));
     }
 
     @Override
@@ -169,7 +174,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         // Shulker-Boxes are DirectionalPlace based unlike other directional-blocks
         if (org.bukkit.Tag.SHULKER_BOXES.isTagged(itemStack.getType())) {
             placeContext = new DirectionalPlaceContext(serverPlayer.level(), hitResult.getBlockPos(),
-                    hitResult.getDirection(), nmsStack, hitResult.getDirection().getOpposite());
+                hitResult.getDirection(), nmsStack, hitResult.getDirection().getOpposite());
         }
 
         BlockPos pos = hitResult.getBlockPos();
@@ -186,8 +191,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             SoundGroup sound = block.getBlockData().getSoundGroup();
 
             world.playSound(
-                    BlockHelpers.toCenterBlockLocation(block.getLocation()), sound.getPlaceSound(),
-                    SoundCategory.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
+                BlockHelpers.toCenterBlockLocation(block.getLocation()), sound.getPlaceSound(),
+                SoundCategory.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
         }
 
         return world.getBlockAt(pos.getX(), pos.getY(), pos.getZ()).getBlockData();
@@ -216,8 +221,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     private TagNetworkSerialization.NetworkPayload createPayload() {
         Constructor<?> constructor = Arrays
-                .stream(TagNetworkSerialization.NetworkPayload.class.getDeclaredConstructors()).findFirst()
-                .orElse(null);
+            .stream(TagNetworkSerialization.NetworkPayload.class.getDeclaredConstructors()).findFirst()
+            .orElse(null);
         if (constructor == null)
             return null;
         constructor.setAccessible(true);
@@ -254,25 +259,25 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     /**
      * Sets a component on an item using the DataComponents registry
-     * 
+     *
      * @param item         The ItemBuilder to modify
      * @param componentKey The component key (e.g. "food", "tool", etc.)
      * @param component    The component object
      * @return true if the component was successfully set
      */
     @Override
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public boolean setComponent(ItemBuilder item, String componentKey, Object component) {
         try {
             net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(new ItemStack(item.getType()));
             net.minecraft.resources.ResourceLocation componentLocation = net.minecraft.resources.ResourceLocation
-                    .tryParse("minecraft:" + componentKey.toLowerCase());
+                .tryParse("minecraft:" + componentKey.toLowerCase());
             if (componentLocation == null)
                 return false;
 
             net.minecraft.core.component.DataComponentType<?> componentType = net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_TYPE
-                    .getOptional(componentLocation)
-                    .orElse(null);
+                .getOptional(componentLocation)
+                .orElse(null);
             if (componentType == null)
                 return false;
 
@@ -296,7 +301,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                         }
                     } catch (Exception e) {
                         io.th0rgal.oraxen.utils.logs.Logs
-                                .logWarning("Failed to create default component for " + componentKey);
+                            .logWarning("Failed to create default component for " + componentKey);
                         return false;
                     }
                 }
@@ -304,7 +309,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                 // Apply NBT to component
                 try {
                     Method fromTag = defaultComponent.getClass().getMethod("fromTag",
-                            net.minecraft.nbt.CompoundTag.class);
+                        net.minecraft.nbt.CompoundTag.class);
                     fromTag.setAccessible(true);
                     Object parsedComponent = fromTag.invoke(defaultComponent, nbt);
 
@@ -317,7 +322,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                     return true;
                 } catch (Exception e) {
                     io.th0rgal.oraxen.utils.logs.Logs
-                            .logWarning("Failed to apply NBT data to component " + componentKey);
+                        .logWarning("Failed to apply NBT data to component " + componentKey);
                     if (io.th0rgal.oraxen.config.Settings.DEBUG.toBool())
                         e.printStackTrace();
                     return false;
@@ -427,14 +432,14 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     public void consumableComponent(ItemBuilder item, ConfigurationSection section) {
         Consumable.Builder consumable = Consumable.builder();
         Consumable template = Optional.ofNullable(CraftItemStack.asNMSCopy(new ItemStack(item.getType()))
-                        .getComponents().get(DataComponents.CONSUMABLE))
-                .orElse(Consumable.builder().build());
+                .getComponents().get(DataComponents.CONSUMABLE))
+            .orElse(Consumable.builder().build());
 
         // Basic properties
         consumable.consumeSeconds((float) section.getDouble("consume_seconds", template.consumeSeconds()));
         consumable.animation(Optional.ofNullable(EnumUtils.getEnum(ItemUseAnimation.class,
-                        section.getString("animation", "").toUpperCase()))
-                .orElse(template.animation()));
+                section.getString("animation", "").toUpperCase()))
+            .orElse(template.animation()));
         consumable.hasConsumeParticles(section.getBoolean("has_consume_particles", template.hasConsumeParticles()));
 
         // Sound handling
@@ -453,8 +458,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         } else {
             for (Map<?, ?> effectSection : effectsMap) {
                 String type = Optional.ofNullable(effectSection.get("type"))
-                        .map(Object::toString)
-                        .orElse("");
+                    .map(Object::toString)
+                    .orElse("");
 
                 switch (type.toLowerCase()) {
                     case "apply_effects" -> handleApplyEffects(consumable, effectSection);
@@ -462,8 +467,8 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                     case "clear_all_effects" -> consumable.onConsume(new ClearAllStatusEffectsConsumeEffect());
                     case "teleport_randomly" -> {
                         float diameter = Optional.ofNullable(effectSection.get("diameter"))
-                                .map(d -> Float.parseFloat(d.toString()))
-                                .orElse(16f);
+                            .map(d -> Float.parseFloat(d.toString()))
+                            .orElse(16f);
                         consumable.onConsume(new TeleportRandomlyConsumeEffect(diameter));
                     }
                     case "play_sound" -> handlePlaySound(consumable, effectSection, template);
@@ -480,36 +485,36 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             return;
 
         float probability = Optional.ofNullable(effectSection.get("probability"))
-                .map(p -> Float.parseFloat(p.toString()))
-                .orElse(1.0f);
+            .map(p -> Float.parseFloat(p.toString()))
+            .orElse(1.0f);
 
         for (Map.Entry<?, ?> entry : effects.entrySet()) {
             String effectId = entry.getKey().toString();
             Map<String, Object> effectData = (Map<String, Object>) entry.getValue();
 
             BuiltInRegistries.MOB_EFFECT.getOptional(ResourceLocation.parse(effectId))
-                    .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
-                    .ifPresent(effect -> {
-                        int duration = Optional.ofNullable(effectData.get("duration"))
-                                .map(d -> Integer.parseInt(d.toString()) * 20)
-                                .orElse(20);
-                        int amplifier = Optional.ofNullable(effectData.get("amplifier"))
-                                .map(a -> Integer.parseInt(a.toString()))
-                                .orElse(0);
-                        boolean ambient = Optional.ofNullable(effectData.get("ambient"))
-                                .map(a -> Boolean.parseBoolean(a.toString()))
-                                .orElse(false);
-                        boolean particles = Optional.ofNullable(effectData.get("show_particles"))
-                                .map(p -> Boolean.parseBoolean(p.toString()))
-                                .orElse(true);
-                        boolean icon = Optional.ofNullable(effectData.get("show_icon"))
-                                .map(i -> Boolean.parseBoolean(i.toString()))
-                                .orElse(true);
+                .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
+                .ifPresent(effect -> {
+                    int duration = Optional.ofNullable(effectData.get("duration"))
+                        .map(d -> Integer.parseInt(d.toString()) * 20)
+                        .orElse(20);
+                    int amplifier = Optional.ofNullable(effectData.get("amplifier"))
+                        .map(a -> Integer.parseInt(a.toString()))
+                        .orElse(0);
+                    boolean ambient = Optional.ofNullable(effectData.get("ambient"))
+                        .map(a -> Boolean.parseBoolean(a.toString()))
+                        .orElse(false);
+                    boolean particles = Optional.ofNullable(effectData.get("show_particles"))
+                        .map(p -> Boolean.parseBoolean(p.toString()))
+                        .orElse(true);
+                    boolean icon = Optional.ofNullable(effectData.get("show_icon"))
+                        .map(i -> Boolean.parseBoolean(i.toString()))
+                        .orElse(true);
 
-                        MobEffectInstance instance = new MobEffectInstance(
-                                effect, duration, amplifier, ambient, particles, icon);
-                        consumable.onConsume(new ApplyStatusEffectsConsumeEffect(instance, probability));
-                    });
+                    MobEffectInstance instance = new MobEffectInstance(
+                        effect, duration, amplifier, ambient, particles, icon);
+                    consumable.onConsume(new ApplyStatusEffectsConsumeEffect(instance, probability));
+                });
         }
     }
 
@@ -518,13 +523,13 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             return;
 
         List<Holder<MobEffect>> mobEffects = effects.stream()
-                .map(Object::toString)
-                .map(ResourceLocation::parse)
-                .map(BuiltInRegistries.MOB_EFFECT::getOptional)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
-                .toList();
+            .map(Object::toString)
+            .map(ResourceLocation::parse)
+            .map(BuiltInRegistries.MOB_EFFECT::getOptional)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
+            .toList();
 
         if (!mobEffects.isEmpty()) {
             consumable.onConsume(new RemoveStatusEffectsConsumeEffect(HolderSet.direct(mobEffects)));
@@ -533,14 +538,14 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     private void handlePlaySound(Consumable.Builder consumable, Map<?, ?> effectSection, Consumable template) {
         ResourceLocation soundKey = Optional.ofNullable(effectSection.get("sound"))
-                .map(Object::toString)
-                .map(ResourceLocation::parse)
-                .orElse(template.sound().value().location());
+            .map(Object::toString)
+            .map(ResourceLocation::parse)
+            .orElse(template.sound().value().location());
 
         BuiltInRegistries.SOUND_EVENT.getOptional(soundKey)
-                .map(BuiltInRegistries.SOUND_EVENT::wrapAsHolder)
-                .map(PlaySoundConsumeEffect::new)
-                .ifPresent(consumable::onConsume);
+            .map(BuiltInRegistries.SOUND_EVENT::wrapAsHolder)
+            .map(PlaySoundConsumeEffect::new)
+            .ifPresent(consumable::onConsume);
     }
 
     @Override
@@ -569,5 +574,26 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             e.printStackTrace();
         }
         return itemStack;
+    }
+
+    @Override
+    public boolean supportsJukeboxPlaying() {
+        return true;
+    }
+
+    @Override
+    public void playJukeBoxSong(Location location, ItemStack itemStack) {
+        ServerLevel level = ((CraftWorld) location.getWorld()).getHandle().getLevel();
+        net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(itemStack);
+        Optional<Holder<JukeboxSong>> optional = JukeboxSong.fromStack(level.registryAccess(), nmsItem);
+        if (!optional.isPresent()) return; // should never happen if the itemstack has the jukeboxPlayable component
+        int id = level.registryAccess().lookupOrThrow(Registries.JUKEBOX_SONG).getId(optional.get().value());
+        level.levelEvent(null, LevelEvent.SOUND_PLAY_JUKEBOX_SONG, new BlockPos(location.getBlockX(), location.getBlockY(), location.getBlockZ()), id);
+    }
+
+    @Override
+    public void stopJukeBox(Location location) {
+        ServerLevel level = ((CraftWorld) location.getWorld()).getHandle().getLevel();
+        level.levelEvent(null, LevelEvent.SOUND_STOP_JUKEBOX_SONG, new BlockPos(location.getBlockX(), location.getBlockY(), location.getBlockZ()), 0);
     }
 }
