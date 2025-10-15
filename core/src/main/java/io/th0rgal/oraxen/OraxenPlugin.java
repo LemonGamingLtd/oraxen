@@ -24,6 +24,7 @@ import io.th0rgal.oraxen.sound.SoundManager;
 import io.th0rgal.oraxen.utils.*;
 import io.th0rgal.oraxen.utils.actions.ClickActionManager;
 import io.th0rgal.oraxen.utils.armorequipevent.ArmorEquipEvent;
+import io.th0rgal.oraxen.utils.breaker.BukkitBreakerSystem;
 import io.th0rgal.oraxen.utils.breaker.PacketEventsBreakerSystem;
 import io.th0rgal.oraxen.utils.breaker.ProtocolLibBreakerSystem;
 import io.th0rgal.oraxen.utils.customarmor.CustomArmorListener;
@@ -92,12 +93,13 @@ public class OraxenPlugin extends JavaPlugin {
 
         if (Settings.KEEP_UP_TO_DATE.toBool())
             new SettingsUpdater().handleSettingsUpdate();
+        new BukkitBreakerSystem().registerListener();
         if (PacketAdapter.isProtocolLibEnabled()) {
             packetAdapter = new ProtocolLibAdapter();
-            new ProtocolLibBreakerSystem().registerListener();
+            //new ProtocolLibBreakerSystem().registerListener();
         } else if (PacketAdapter.isPacketEventsEnabled()) {
             packetAdapter = new PacketEventsAdapter();
-            new PacketEventsBreakerSystem().registerListener();
+            //new PacketEventsBreakerSystem().registerListener();
         } else {
             packetAdapter = new PacketAdapter.EmptyAdapter();
             Message.MISSING_PROTOCOLLIB.log();
