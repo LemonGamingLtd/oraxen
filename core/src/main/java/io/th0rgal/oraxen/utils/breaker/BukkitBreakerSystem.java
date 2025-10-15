@@ -1,11 +1,8 @@
 package io.th0rgal.oraxen.utils.breaker;
 
 import io.th0rgal.oraxen.OraxenPlugin;
-import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.api.OraxenFurniture;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureMechanic;
-import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.NoteBlockMechanic;
-import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanic;
 import io.th0rgal.oraxen.utils.EventUtils;
 import io.th0rgal.oraxen.utils.ItemUtils;
 import io.th0rgal.oraxen.utils.drops.Drop;
@@ -39,28 +36,19 @@ public class BukkitBreakerSystem extends BreakerSystem implements Listener {
 
     @Override
     protected void handleEvent(Player player, Block block, Location location, BlockFace blockFace, World world, Runnable cancel, boolean startedDigging) {
-        if (player.getGameMode() == GameMode.CREATIVE) return;
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            return;
+        }
 
         final ItemStack item = player.getInventory().getItemInMainHand();
-
-        NoteBlockMechanic noteMechanic = OraxenBlocks.getNoteBlockMechanic(block);
-        StringBlockMechanic stringMechanic = OraxenBlocks.getStringMechanic(block);
-        FurnitureMechanic furnitureMechanic = OraxenFurniture.getFurnitureMechanic(block);
-        if (block.getType() == Material.NOTE_BLOCK && noteMechanic == null) return;
-        if (block.getType() == Material.TRIPWIRE && stringMechanic == null) return;
-        if (block.getType() == Material.BARRIER && furnitureMechanic == null) return;
+        final FurnitureMechanic furnitureMechanic = OraxenFurniture.getFurnitureMechanic(block);
+        if (block.getType() != Material.BARRIER || furnitureMechanic == null) {
+            return;
+        }
 
         cancel.run();
 
-        final Drop drop;
-        if (furnitureMechanic != null)
-            drop = furnitureMechanic.getDrop() != null ? furnitureMechanic.getDrop() : Drop.emptyDrop();
-        else if (noteMechanic != null)
-            drop = noteMechanic.getDrop() != null ? noteMechanic.getDrop() : Drop.emptyDrop();
-        else if (stringMechanic != null)
-            drop = stringMechanic.getDrop() != null ? stringMechanic.getDrop() : Drop.emptyDrop();
-        else drop = null;
-
+        final Drop drop = furnitureMechanic.getDrop() != null ? furnitureMechanic.getDrop() : Drop.emptyDrop();
         if (EventUtils.callEvent(new BlockBreakEvent(block, player)) && ProtectionLib.canBreak(player, location)) {
             // Damage item with properties identified earlier
             ItemUtils.damageItem(player, drop, item);
