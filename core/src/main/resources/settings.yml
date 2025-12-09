@@ -84,6 +84,12 @@ Pack:
     generate: true # Unlike Plugin.generation.default_assets, this will enable/disable all pack generation
     # List of file extensions that will not be included in the final zipped ResourcePack
     excluded_file_extensions: []
+    # Which systems to use for item appearance (1.21.4+ only, pre-1.21.4 always uses predicates)
+    appearance:
+      # Generate item model definitions (assets/oraxen/items/*.json) - items get the item_model component
+      item_model: true
+      # Generate predicate overrides in base item models (assets/minecraft/models/item/*.json) - items get custom_model_data
+      predicates: false
     verify_pack_files: true # Checks all textures and models to make sure they abide by valid Resourcepack formatting
     fix_force_unicode_glyphs: true # Fixes glyphs not being shown when Force Unicode is enabled
     texture_slicer: true # Slices default-texture overrides into new 1.20.2 format
@@ -121,10 +127,14 @@ Pack:
 
   upload:
     enabled: true
-    type: polymath #transfer.sh or polymath
+    type: polymath #transfer.sh, polymath, or self-host
     polymath:
       server: atlas.oraxen.com # you can also host your own polymath instance
       secret: "oraxen" # change this if you host your own polymath to limit access to resource pack uploading
+    self-host:
+      host: "0.0.0.0" # The IP address to bind the HTTP server to (0.0.0.0 = listen on all interfaces)
+      port: 8080 # The port the HTTP server will listen on
+      domain: "localhost:8080" # The domain/IP:port that players will use to download the pack (e.g., "my-server.com:8080" or "192.168.1.100:8080")
 
   dispatch:
     send_pack: true

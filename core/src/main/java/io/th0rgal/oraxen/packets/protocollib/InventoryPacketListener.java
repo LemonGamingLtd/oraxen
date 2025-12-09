@@ -21,7 +21,7 @@ public class InventoryPacketListener extends PacketAdapter {
         try {
             String chat = PacketHelpers.readJson(packet.getChatComponents().read(0).getJson());
             packet.getChatComponents().write(0, WrappedChatComponent.fromJson(PacketHelpers.toJson(chat)));
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
 
         }
     }
