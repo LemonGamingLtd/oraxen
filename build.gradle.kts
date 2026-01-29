@@ -114,6 +114,7 @@ allprojects {
         maven("https://repo.codemc.io/repository/maven-releases/") {
             content { includeGroup("com.github.retrooper") }
         }
+        maven("https://repo.codemc.io/repository/nms/")
         maven("https://repo.skriptlang.org/releases") {
             content { includeGroup("com.github.SkriptLang") } // Skript
         }

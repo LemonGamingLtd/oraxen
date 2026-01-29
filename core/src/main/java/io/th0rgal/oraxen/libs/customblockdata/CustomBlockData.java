@@ -22,10 +22,13 @@ package io.th0rgal.oraxen.libs.customblockdata;
  * Donations: https://paypal.me/mfnalex
  */
 
-import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.libs.customblockdata.events.CustomBlockDataRemoveEvent;
-import io.th0rgal.oraxen.utils.VersionUtil;
-import org.bukkit.*;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.persistence.PersistentDataAdapterContext;
@@ -43,7 +46,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -228,7 +236,7 @@ public class CustomBlockData implements PersistentDataContainer {
             return;
 
         DIRTY_BLOCKS.add(blockEntry);
-        OraxenPlugin.get().getScheduler().runTask(() -> DIRTY_BLOCKS.remove(blockEntry));
+        SchedulerUtil.runTask(() -> DIRTY_BLOCKS.remove(blockEntry));
     }
 
     /**
@@ -538,6 +546,11 @@ public class CustomBlockData implements PersistentDataContainer {
     @Deprecated
     public byte[] serializeToBytes() throws IOException {
         return pdc.serializeToBytes();
+    }
+
+    @Override
+    public int getSize() {
+        return pdc.getSize();
     }
 
     /**
