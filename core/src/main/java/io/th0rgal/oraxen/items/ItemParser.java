@@ -5,6 +5,7 @@ import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.compatibilities.provided.ecoitems.WrappedEcoItem;
 import io.th0rgal.oraxen.compatibilities.provided.mmoitems.WrappedMMOItem;
 import io.th0rgal.oraxen.compatibilities.provided.mythiccrucible.WrappedCrucibleItem;
+import io.th0rgal.oraxen.config.AppearanceMode;
 import io.th0rgal.oraxen.config.Settings;
 import io.th0rgal.oraxen.hook.PackGeneratorPluginHook;
 import io.th0rgal.oraxen.mechanics.Mechanic;
@@ -175,9 +176,7 @@ public class ItemParser {
             final String itemId = section != null ? section.getName() : "unknown";
             Logs.logError("Error building item \"" + itemId + "\"");
             Logs.logError(e.getMessage());
-            if (Settings.DEBUG.toBool()) {
-                e.printStackTrace();
-            }
+            Logs.debug(e);
             // Still return the item to avoid NPE, even if it's not fully configured
             return item;
         }
@@ -223,13 +222,14 @@ public class ItemParser {
             item.setFireResistant(components.getBoolean("fire_resistant"));
         if (components.contains("hide_tooltip"))
             item.setHideToolTip(components.getBoolean("hide_tooltip"));
+        if (components.contains("max_stack_size"))
+            item.setMaxStackSize(components.getInt("max_stack_size"));
 
         final NMSHandler nmsHandler = NMSHandlers.getHandler();
         if (nmsHandler == null) {
             Logs.logWarning("NMSHandler is null - some components won't work properly");
             if (Settings.DEBUG.toBool()) {
                 Logs.logError("Item parsing: " + (section != null ? section.getName() : "unknown section"));
-                new Exception("NMSHandler is null").printStackTrace();
             }
         } else {
             Optional.ofNullable(components.getConfigurationSection("food"))
@@ -254,9 +254,7 @@ public class ItemParser {
                 } catch (final NoSuchMethodError e) {
                     Logs.logWarning(
                             "Error setting jukebox show_in_tooltip: This method is not available in your server version");
-                    if (Settings.DEBUG.toBool()) {
-                        e.printStackTrace();
-                    }
+                    Logs.debug(e);
                 }
 
                 try {
@@ -264,17 +262,13 @@ public class ItemParser {
                 } catch (final NoSuchMethodError e) {
                     Logs.logWarning(
                             "Error setting jukebox song_key: This method is not available in your server version");
-                    if (Settings.DEBUG.toBool()) {
-                        e.printStackTrace();
-                    }
+                    Logs.debug(e);
                 }
 
                 item.setJukeboxPlayable(jukeboxPlayable);
             } catch (final Exception e) {
                 Logs.logWarning("Failed to create JukeboxPlayableComponent for item: " + section.getName());
-                if (Settings.DEBUG.toBool()) {
-                    e.printStackTrace();
-                }
+                Logs.debug(e);
             }
         } else if (jukeboxSection != null) {
             Logs.logInfo("JukeboxPlayableComponent is only supported on Paper servers. Skipping this component.");
@@ -299,9 +293,7 @@ public class ItemParser {
             } catch (final NoSuchMethodError | Exception e) {
                 Logs.logWarning(
                         "Error setting UseCooldownComponent: This component is not available in your server version");
-                if (Settings.DEBUG.toBool()) {
-                    e.printStackTrace();
-                }
+                Logs.debug(e);
             }
         });
 
@@ -323,6 +315,7 @@ public class ItemParser {
         return key.equals("durability") ||
                 key.equals("fire_resistant") ||
                 key.equals("hide_tooltip") ||
+                key.equals("max_stack_size") ||
                 key.equals("food") ||
                 key.equals("tool") ||
                 key.equals("jukebox_playable") ||
@@ -382,8 +375,7 @@ public class ItemParser {
                 } catch (final Exception e) {
                     Logs.logWarning("Error parsing rule-entry in " + section.getName());
                     Logs.logWarning("Malformed \"material\"-section");
-                    if (Settings.DEBUG.toBool())
-                        e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
 
@@ -398,8 +390,7 @@ public class ItemParser {
                 } catch (final Exception e) {
                     Logs.logWarning("Error parsing rule-entry in " + section.getName());
                     Logs.logWarning("Malformed \"materials\"-section");
-                    if (Settings.DEBUG.toBool())
-                        e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
 
@@ -411,8 +402,7 @@ public class ItemParser {
                 } catch (final Exception e) {
                     Logs.logWarning("Error parsing rule-entry in " + section.getName());
                     Logs.logWarning("Malformed \"tag\"-section");
-                    if (Settings.DEBUG.toBool())
-                        e.printStackTrace();
+                    Logs.debug(e);
                 }
             }
 
@@ -425,9 +415,8 @@ public class ItemParser {
                     }
                 } catch (final Exception e) {
                     Logs.logWarning("Error parsing rule-entry in " + section.getName());
-                    Logs.logWarning("Malformed \"material\"-section");
-                    if (Settings.DEBUG.toBool())
-                        e.printStackTrace();
+                    Logs.logWarning("Malformed \"tags\"-section");
+                    Logs.debug(e);
                 }
             }
 
@@ -537,7 +526,8 @@ public class ItemParser {
                             attributeJson.get("value"));
                 }
             } catch (final IllegalAccessException | NoSuchFieldException e) {
-                e.printStackTrace();
+                Logs.logWarning("Error parsing CustomTags in " + section.getName());
+                Logs.debug(e);
             }
         }
 
@@ -560,9 +550,7 @@ public class ItemParser {
                     }
                 } catch (final Exception e) {
                     Logs.logWarning("Error parsing AttributeModifiers in " + section.getName());
-                    if (Settings.DEBUG.toBool()) {
-                        e.printStackTrace();
-                    }
+                    Logs.debug(e);
                 }
             }
         }
@@ -625,17 +613,31 @@ public class ItemParser {
     }
 
     private void applyAppearanceComponents(ItemBuilder item) {
-        boolean useItemModel = VersionUtil.atOrAbove("1.21.4") && Settings.APPEARANCE_ITEM_MODEL.toBool();
-        boolean usePredicates = Settings.APPEARANCE_PREDICATES.toBool() || !VersionUtil.atOrAbove("1.21.4");
+        final boolean is1_21_4Plus = VersionUtil.atOrAbove("1.21.4");
 
-        //if (useItemModel) {
-        //    applyItemModelComponent(item);
-        //}
-        //if (usePredicates) {
-            applyCustomModelData(item);
+        //if (is1_21_4Plus) {
+        //    // 1.21.4+ can combine multiple appearance systems
+        //    if (AppearanceMode.isItemPropertiesEnabled()) {
+        //        applyItemModelComponent(item);
+        //    }
+        //    if (AppearanceMode.isModelDataIdsEnabled()) {
+        //        applyModelDataIds(item);
+        //    }
+        //    if (AppearanceMode.isModelDataFloatEnabled()) {
+        //        // MODEL_DATA_FLOAT sets floats[0] and integer CMD on items
+        //        applyModelDataFloat(item);
+        //        applyLegacyCustomModelData(item);
+        //    }
+        //    // generate_predicates only affects pack generation, not item components
+        //} else {
+            // Pre-1.21.4: always apply legacy integer CustomModelData (only option available)
+            applyLegacyCustomModelData(item);
         //}
     }
 
+    /**
+     * ITEM_PROPERTIES mode: sets the minecraft:item_model component to "oraxen:&lt;item_id&gt;".
+     */
     private void applyItemModelComponent(ItemBuilder item) {
         if (!oraxenMeta.hasPackInfos() || oraxenMeta.isExcludedFromItemModel())
             return;
@@ -645,10 +647,43 @@ public class ItemParser {
         item.setItemModel(new NamespacedKey(OraxenPlugin.get(), section.getName()));
     }
 
-    private void applyCustomModelData(ItemBuilder item) {
+    /**
+     * MODEL_DATA_IDS mode: sets custom_model_data.strings[0] = "oraxen:&lt;item_id&gt;".
+     */
+    private void applyModelDataIds(ItemBuilder item) {
+        if (oraxenMeta.isExcludedFromPredicates())
+            return;
+
+        final String itemId = section != null ? section.getName() : null;
+        if (itemId == null || itemId.isBlank())
+            return;
+
+        // Set strings[0] = "oraxen:<item_id>" for the minecraft:select dispatcher
+        item.setCustomModelDataStrings(List.of(new NamespacedKey(OraxenPlugin.get(), itemId).toString()));
+    }
+
+    /**
+     * MODEL_DATA_FLOAT mode: sets custom_model_data.floats[0] = &lt;Pack.custom_model_data&gt;.
+     */
+    private void applyModelDataFloat(ItemBuilder item) {
+        if (oraxenMeta.isExcludedFromPredicates())
+            return;
+
+        final Integer customModelData = resolveCustomModelData(item);
+        if (customModelData != null) {
+            // Set floats[0] = CMD value for the minecraft:range_dispatch dispatcher
+            item.setCustomModelDataFloats(List.of((float) customModelData));
+            oraxenMeta.setCustomModelData(customModelData);
+        }
+    }
+
+    /**
+     * Legacy (pre-1.21.4) or force_predicates: sets integer CustomModelData for
+     * predicate overrides in assets/minecraft/models/item/*.json.
+     */
+    private void applyLegacyCustomModelData(ItemBuilder item) {
         //if (oraxenMeta.isExcludedFromPredicates())
         //    return;
-
         //final Integer customModelData = resolveCustomModelData(item);
         //if (customModelData != null) {
         //    item.setCustomModelData(customModelData);

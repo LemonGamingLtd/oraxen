@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.mechanics;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.events.OraxenNativeMechanicsRegisteredEvent;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
+import io.th0rgal.oraxen.mechanics.provided.combat.knockbackstrike.KnockbackStrikeMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.combat.bleeding.BleedingMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.combat.lifeleech.LifeLeechMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.combat.spear.SpearLungeMechanicFactory;
@@ -11,6 +12,7 @@ import io.th0rgal.oraxen.mechanics.provided.combat.spell.fireball.FireballMechan
 import io.th0rgal.oraxen.mechanics.provided.combat.spell.thor.ThorMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.combat.spell.witherskull.WitherSkullMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.aura.AuraMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.cosmetic.backpack.BackpackCosmeticFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.hat.HatMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.skin.SkinMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.cosmetic.skinnable.SkinnableMechanicFactory;
@@ -21,12 +23,15 @@ import io.th0rgal.oraxen.mechanics.provided.farming.harvesting.HarvestingMechani
 import io.th0rgal.oraxen.mechanics.provided.farming.smelting.SmeltingMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.farming.watering.WateringMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.block.BlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.chorusblock.ChorusBlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.shaped.ShapedBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.durability.DurabilityMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.efficiency.EfficiencyMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.NoteBlockMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.repair.RepairMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.StringBlockMechanicFactory;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.togglelight.ToggleLightMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.armor_effects.ArmorEffectsFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.backpack.BackpackMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.commands.CommandsMechanicFactory;
@@ -38,13 +43,13 @@ import io.th0rgal.oraxen.mechanics.provided.misc.itemtype.ItemTypeMechanicFactor
 import io.th0rgal.oraxen.mechanics.provided.misc.misc.MiscMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.music_disc.MusicDiscMechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.misc.soulbound.SoulBoundMechanicFactory;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,7 +59,7 @@ import java.util.Map.Entry;
 public class MechanicsManager {
 
     private static final Map<String, MechanicFactory> FACTORIES_BY_MECHANIC_ID = new HashMap<>();
-    public static final Map<String, List<io.th0rgal.oraxen.api.scheduler.AdaptedTask>> MECHANIC_TASKS = new HashMap<>();
+    private static final Map<String, List<SchedulerUtil.ScheduledTask>> MECHANIC_TASKS = new HashMap<>();
     private static final Map<String, List<Listener>> MECHANICS_LISTENERS = new HashMap<>();
 
     public static void registerNativeMechanics() {
@@ -78,10 +83,14 @@ public class MechanicsManager {
         registerFactory("block", BlockMechanicFactory::new);
         registerFactory("noteblock", NoteBlockMechanicFactory::new);
         registerFactory("stringblock", StringBlockMechanicFactory::new);
+        registerFactory("chorusblock", ChorusBlockMechanicFactory::new);
+        registerFactory("shaped_block", ShapedBlockMechanicFactory::new);
         registerFactory("furniture", FurnitureFactory::new);
+        registerFactory("toggle_light", ToggleLightMechanicFactory::new);
 
         // cosmetic
         registerFactory("aura", AuraMechanicFactory::new);
+        registerFactory("backpack_cosmetic", BackpackCosmeticFactory::new);
         registerFactory("hat", HatMechanicFactory::new);
         registerFactory("skin", SkinMechanicFactory::new);
         registerFactory("skinnable", SkinnableMechanicFactory::new);
@@ -92,6 +101,7 @@ public class MechanicsManager {
         registerFactory("energyblast", EnergyBlastMechanicFactory::new);
         registerFactory("witherskull", WitherSkullMechanicFactory::new);
         registerFactory("fireball", FireballMechanicFactory::new);
+		registerFactory("knockback_strike", KnockbackStrikeMechanicFactory::new);
         registerFactory("bleeding", BleedingMechanicFactory::new);
         registerFactory("spear_lunge", SpearLungeMechanicFactory::new);
 
@@ -104,10 +114,7 @@ public class MechanicsManager {
         if (CompatibilitiesManager.hasPlugin("ProtocolLib"))
             registerFactory("bedrockbreak", BedrockBreakMechanicFactory::new);
 
-        OraxenPlugin.get().getScheduler().runTask(() -> {
-            Bukkit.getPluginManager().callEvent(new OraxenNativeMechanicsRegisteredEvent());
-            //return null;
-        });
+        SchedulerUtil.runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenNativeMechanicsRegisteredEvent()));
     }
 
     /**
@@ -154,7 +161,11 @@ public class MechanicsManager {
         }
     }
 
-    public static void registerTask(String mechanicId, io.th0rgal.oraxen.api.scheduler.AdaptedTask task) {
+    /**
+     * Registers a scheduled task for a mechanic so it can be cancelled during reload/unload.
+     */
+    public static void registerTask(String mechanicId, SchedulerUtil.ScheduledTask task) {
+        if (task == null) return;
         MECHANIC_TASKS.compute(mechanicId, (key, value) -> {
             if (value == null) value = new ArrayList<>();
             value.add(task);
@@ -163,13 +174,20 @@ public class MechanicsManager {
     }
 
     public static void unregisterTasks() {
-        MECHANIC_TASKS.values().forEach(tasks -> tasks.forEach(io.th0rgal.oraxen.api.scheduler.AdaptedTask::cancel));
+        MECHANIC_TASKS.values().forEach(tasks -> tasks.forEach(task -> {
+            if (task != null) task.cancel();
+        }));
         MECHANIC_TASKS.clear();
+        
+        // Stop dynamically-started aura tasks (these aren't registered as regular tasks)
+        AuraMechanicFactory.stopAllAuras();
     }
 
     public static void unregisterTasks(String mechanicId) {
         MECHANIC_TASKS.computeIfPresent(mechanicId, (key, value) -> {
-            value.forEach(io.th0rgal.oraxen.api.scheduler.AdaptedTask::cancel);
+            value.forEach(task -> {
+                if (task != null) task.cancel();
+            });
             return Collections.emptyList();
         });
     }
@@ -197,6 +215,16 @@ public class MechanicsManager {
 
     public static MechanicFactory getMechanicFactory(final String mechanicID) {
         return FACTORIES_BY_MECHANIC_ID.get(mechanicID);
+    }
+
+    /**
+     * Returns all registered mechanic factories.
+     * Used by SchemaGenerator for automatic schema extraction.
+     *
+     * @return Unmodifiable map of mechanic ID to factory
+     */
+    public static Map<String, MechanicFactory> getAllFactories() {
+        return Collections.unmodifiableMap(FACTORIES_BY_MECHANIC_ID);
     }
 
     @FunctionalInterface

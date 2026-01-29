@@ -24,9 +24,16 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.ClientboundUpdateTagsPacket;
+import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PositionMoveRotation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -74,6 +81,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
@@ -122,6 +130,11 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     @Override
     public boolean noteblockUpdatesDisabled() {
         return VersionUtil.isPaperServer() && GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates;
+    }
+
+    @Override
+    public boolean chorusPlantUpdatesDisabled() {
+        return VersionUtil.isPaperServer() && GlobalConfiguration.get().blockUpdates.disableChorusPlantUpdates;
     }
 
     @Override
@@ -234,7 +247,9 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         return null;
     }
 
-    private final Map<ResourceLocation, IntList> tagRegistryMap = new HashMap();// createTagRegistryMap();
+    // Use Object as key type to support both ResourceLocation (1.21.10) and
+    // Identifier (1.21.11)
+    private final Map<Object, IntList> tagRegistryMap = new HashMap<>();
 
     /*
      * private static Map<ResourceLocation, IntList> createTagRegistryMap() {
@@ -270,14 +285,12 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     public boolean setComponent(ItemBuilder item, String componentKey, Object component) {
         try {
             net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(new ItemStack(item.getType()));
-            net.minecraft.resources.ResourceLocation componentLocation = net.minecraft.resources.ResourceLocation
-                    .tryParse("minecraft:" + componentKey.toLowerCase());
+            Object componentLocation = ResourceLocationHelper.parse("minecraft:" + componentKey.toLowerCase());
             if (componentLocation == null)
                 return false;
 
-            net.minecraft.core.component.DataComponentType<?> componentType = net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_TYPE
-                    .getOptional(componentLocation)
-                    .orElse(null);
+            // Use reflection to call getOptional with the correct type
+            net.minecraft.core.component.DataComponentType<?> componentType = getDataComponentType(componentLocation);
             if (componentType == null)
                 return false;
 
@@ -445,8 +458,12 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         // Sound handling
         String soundId = section.getString("sound");
         if (soundId != null) {
-            ResourceLocation soundLocation = ResourceLocation.parse(soundId);
-            consumable.sound(Holder.direct(new SoundEvent(soundLocation, Optional.empty())));
+            SoundEvent soundEvent = getSoundEventFromId(soundId);
+            if (soundEvent != null) {
+                consumable.sound(Holder.direct(soundEvent));
+            } else {
+                consumable.sound(template.sound());
+            }
         } else {
             consumable.sound(template.sound());
         }
@@ -492,7 +509,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
             String effectId = entry.getKey().toString();
             Map<String, Object> effectData = (Map<String, Object>) entry.getValue();
 
-            BuiltInRegistries.MOB_EFFECT.getOptional(ResourceLocation.parse(effectId))
+            getMobEffectOptional(effectId)
                     .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
                     .ifPresent(effect -> {
                         int duration = Optional.ofNullable(effectData.get("duration"))
@@ -524,8 +541,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
         List<Holder<MobEffect>> mobEffects = effects.stream()
                 .map(Object::toString)
-                .map(ResourceLocation::parse)
-                .map(BuiltInRegistries.MOB_EFFECT::getOptional)
+                .map(this::getMobEffectOptional)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(BuiltInRegistries.MOB_EFFECT::wrapAsHolder)
@@ -537,15 +553,88 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
     }
 
     private void handlePlaySound(Consumable.Builder consumable, Map<?, ?> effectSection, Consumable template) {
-        ResourceLocation soundKey = Optional.ofNullable(effectSection.get("sound"))
+        String soundIdStr = Optional.ofNullable(effectSection.get("sound"))
                 .map(Object::toString)
-                .map(ResourceLocation::parse)
-                .orElse(template.sound().value().location());
+                .orElse(null);
 
-        BuiltInRegistries.SOUND_EVENT.getOptional(soundKey)
-                .map(BuiltInRegistries.SOUND_EVENT::wrapAsHolder)
-                .map(PlaySoundConsumeEffect::new)
-                .ifPresent(consumable::onConsume);
+        if (soundIdStr != null) {
+            getSoundEventOptional(soundIdStr)
+                    .map(BuiltInRegistries.SOUND_EVENT::wrapAsHolder)
+                    .map(PlaySoundConsumeEffect::new)
+                    .ifPresent(consumable::onConsume);
+        } else {
+            // Use template sound
+            consumable.onConsume(new PlaySoundConsumeEffect(template.sound()));
+        }
+    }
+
+    // ============ Reflection helpers for ResourceLocation/Identifier compatibility
+    // ============
+
+    /**
+     * Get DataComponentType by looking up the component location via reflection.
+     */
+    @SuppressWarnings("unchecked")
+    private net.minecraft.core.component.DataComponentType<?> getDataComponentType(Object location) {
+        try {
+            java.lang.reflect.Method getOptional = BuiltInRegistries.DATA_COMPONENT_TYPE.getClass()
+                    .getMethod("getOptional", ResourceLocationHelper.getResourceLocationClass());
+            Optional<net.minecraft.core.component.DataComponentType<?>> result = (Optional<net.minecraft.core.component.DataComponentType<?>>) getOptional
+                    .invoke(
+                            BuiltInRegistries.DATA_COMPONENT_TYPE, location);
+            return result.orElse(null);
+        } catch (Exception e) {
+            Logs.logWarning("Failed to get data component type: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get MobEffect optional by effect ID string.
+     */
+    @SuppressWarnings("unchecked")
+    private Optional<MobEffect> getMobEffectOptional(String effectId) {
+        try {
+            Object location = ResourceLocationHelper.parse(effectId);
+            java.lang.reflect.Method getOptional = BuiltInRegistries.MOB_EFFECT.getClass()
+                    .getMethod("getOptional", ResourceLocationHelper.getResourceLocationClass());
+            return (Optional<MobEffect>) getOptional.invoke(BuiltInRegistries.MOB_EFFECT, location);
+        } catch (Exception e) {
+            Logs.logWarning("Failed to get mob effect: " + effectId);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Get SoundEvent optional by sound ID string.
+     */
+    @SuppressWarnings("unchecked")
+    private Optional<SoundEvent> getSoundEventOptional(String soundId) {
+        try {
+            Object location = ResourceLocationHelper.parse(soundId);
+            java.lang.reflect.Method getOptional = BuiltInRegistries.SOUND_EVENT.getClass()
+                    .getMethod("getOptional", ResourceLocationHelper.getResourceLocationClass());
+            return (Optional<SoundEvent>) getOptional.invoke(BuiltInRegistries.SOUND_EVENT, location);
+        } catch (Exception e) {
+            Logs.logWarning("Failed to get sound event: " + soundId);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Create a SoundEvent from a sound ID string.
+     */
+    private SoundEvent getSoundEventFromId(String soundId) {
+        try {
+            Object location = ResourceLocationHelper.parse(soundId);
+            // SoundEvent constructor takes the location - use reflection since type differs
+            java.lang.reflect.Constructor<?> constructor = SoundEvent.class.getConstructor(
+                    ResourceLocationHelper.getResourceLocationClass(), Optional.class);
+            return (SoundEvent) constructor.newInstance(location, Optional.empty());
+        } catch (Exception e) {
+            Logs.logWarning("Failed to create sound event: " + soundId);
+            return null;
+        }
     }
 
     @Override
@@ -599,4 +688,170 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         level.levelEvent(null, LevelEvent.SOUND_STOP_JUKEBOX_SONG,
                 new BlockPos(location.getBlockX(), location.getBlockY(), location.getBlockZ()), 0);
     }
+
+    // ============ Backpack Cosmetic Packet Methods ============
+
+    private static final AtomicInteger ENTITY_ID_COUNTER = new AtomicInteger(Integer.MAX_VALUE / 2);
+
+    @Override
+    public int getNextEntityId() {
+        return ENTITY_ID_COUNTER.decrementAndGet();
+    }
+
+    @Override
+    public void spawnBackpackArmorStand(Player viewer, int entityId, Location location, ItemStack displayItem, boolean small) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+
+        // Debug: Logs.logSuccess("[Backpack] Spawning armor stand for " + viewer.getName() + " at " + location + " (entityId: " + entityId + ")");
+
+        // Create spawn packet for armor stand
+        UUID uuid = UUID.randomUUID();
+        double x = location.getX();
+        double y = location.getY();
+        double z = location.getZ();
+        float yaw = location.getYaw();
+        float pitch = location.getPitch();
+
+        // Spawn entity packet
+        ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(
+                entityId,
+                uuid,
+                x, y, z,
+                pitch, yaw,
+                EntityType.ARMOR_STAND,
+                0, // data
+                Vec3.ZERO,
+                0.0 // head yaw
+        );
+        connection.send(spawnPacket);
+
+        // Set entity metadata (invisible, small - NO marker flag so equipment renders)
+        List<SynchedEntityData.DataValue<?>> metadata = new ArrayList<>();
+
+        // Byte flags at index 0: 0x20 = invisible (armor stand body invisible, equipment still renders)
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(0, EntityDataSerializers.BYTE),
+                (byte) 0x20  // Invisible - only equipment renders
+        ));
+
+        // Armor stand flags at index 15: 0x01 = small (NO marker flag - marker prevents equipment rendering)
+        byte armorStandFlags = (byte) (small ? 0x01 : 0x00);
+        // Don't set marker flag (0x10) - it prevents equipment from rendering
+        metadata.add(SynchedEntityData.DataValue.create(
+                new EntityDataAccessor<>(15, EntityDataSerializers.BYTE),
+                armorStandFlags
+        ));
+
+        ClientboundSetEntityDataPacket metadataPacket = new ClientboundSetEntityDataPacket(entityId, metadata);
+        connection.send(metadataPacket);
+
+        // Set equipment - use HEAD slot to display the item as a head decoration
+        // This renders the item model on top of the armor stand
+        if (displayItem != null && !displayItem.getType().isAir()) {
+            net.minecraft.world.item.ItemStack nmsItem = CraftItemStack.asNMSCopy(displayItem);
+            List<com.mojang.datafixers.util.Pair<net.minecraft.world.entity.EquipmentSlot, net.minecraft.world.item.ItemStack>> equipment = new ArrayList<>();
+            // Set item in head slot - renders as a floating item on the armor stand
+            equipment.add(new com.mojang.datafixers.util.Pair<>(
+                    net.minecraft.world.entity.EquipmentSlot.HEAD,
+                    nmsItem
+            ));
+            ClientboundSetEquipmentPacket equipmentPacket = new ClientboundSetEquipmentPacket(entityId, equipment);
+            connection.send(equipmentPacket);
+            // Debug: Logs.logSuccess("[Backpack] Sent equipment packet with item in HEAD slot: " + displayItem.getType());
+        }
+    }
+
+    @Override
+    public void sendEntityTeleport(Player viewer, int entityId, Location location) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+
+        // Create position/rotation data
+        PositionMoveRotation positionData = new PositionMoveRotation(
+                new Vec3(location.getX(), location.getY(), location.getZ()),
+                Vec3.ZERO, // delta movement
+                location.getYaw(),
+                location.getPitch()
+        );
+
+        ClientboundEntityPositionSyncPacket teleportPacket = new ClientboundEntityPositionSyncPacket(
+                entityId,
+                positionData,
+                false // on ground
+        );
+        connection.send(teleportPacket);
+    }
+
+    @Override
+    public void sendEntityHeadRotation(Player viewer, int entityId, float yaw) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+
+        // Following HMCCosmetics approach: send BOTH rotation packets for proper rotation
+        // "First person backpacks need both packets to rotate properly, otherwise they look off"
+
+        // Convert yaw to protocol format (256 steps per rotation)
+        byte protocolYaw = (byte) ((int) (yaw * 256.0F / 360.0F));
+
+        // 1. Send entity body rotation packet (ClientboundMoveEntityPacket.Rot)
+        connection.send(new ClientboundMoveEntityPacket.Rot(entityId, protocolYaw, (byte) 0, false));
+
+        // 2. Send entity head rotation packet - write manually since we have a fake entity
+        // Packet format: VarInt entityId, Byte headYaw
+        io.netty.buffer.ByteBuf byteBuf = io.netty.buffer.Unpooled.buffer();
+        try {
+            FriendlyByteBuf buf = new FriendlyByteBuf(byteBuf);
+            buf.writeVarInt(entityId);
+            buf.writeByte(protocolYaw);
+
+            // Create and send the packet using the registry
+            ClientboundRotateHeadPacket headPacket = ClientboundRotateHeadPacket.STREAM_CODEC.decode(buf);
+            connection.send(headPacket);
+        } finally {
+            byteBuf.release();
+        }
+    }
+
+    @Override
+    public void sendEntityDestroy(Player viewer, int... entityIds) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+
+        ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityIds);
+        connection.send(destroyPacket);
+    }
+
+    @Override
+    public void sendMountPacket(Player viewer, int vehicleId, int... passengerIds) {
+        ServerPlayer serverPlayer = ((CraftPlayer) viewer).getHandle();
+        Connection connection = serverPlayer.connection.connection;
+
+        // Create mount packet by writing to a buffer
+        io.netty.buffer.ByteBuf byteBuf = io.netty.buffer.Unpooled.buffer();
+        try {
+            net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(byteBuf);
+
+            // Write vehicle entity ID as VarInt
+            buf.writeVarInt(vehicleId);
+
+            // Write passenger count as VarInt
+            buf.writeVarInt(passengerIds.length);
+
+            // Write each passenger ID as VarInt
+            for (int passengerId : passengerIds) {
+                buf.writeVarInt(passengerId);
+            }
+
+            // Create packet using the buffer constructor
+            ClientboundSetPassengersPacket mountPacket = ClientboundSetPassengersPacket.STREAM_CODEC.decode(buf);
+            connection.send(mountPacket);
+        } catch (Exception e) {
+            Logs.logWarning("Failed to send mount packet: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            byteBuf.release();
+        }
+    }
+
 }

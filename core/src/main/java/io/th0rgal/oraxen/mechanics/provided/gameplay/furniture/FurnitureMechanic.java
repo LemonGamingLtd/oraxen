@@ -1,6 +1,6 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
-import io.th0rgal.oraxen.libs.customblockdata.CustomBlockData;//import com.jeff_media.customblockdata.CustomBlockData;
+import com.jeff_media.customblockdata.CustomBlockData;
 import com.jeff_media.morepersistentdatatypes.DataType;
 import com.ticxo.modelengine.api.ModelEngineAPI;
 import com.ticxo.modelengine.api.model.ActiveModel;
@@ -12,11 +12,16 @@ import io.th0rgal.oraxen.compatibilities.provided.blocklocker.BlockLockerMechani
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.evolution.EvolvingFurniture;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.evolution.GrowthStage;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.jukebox.JukeboxBlock;
+import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.light.LightMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.limitedplacing.LimitedPlacing;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.storage.StorageMechanic;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.togglelight.ToggleLightMechanic;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.togglelight.ToggleLightMechanicFactory;
 import io.th0rgal.oraxen.utils.*;
+import io.th0rgal.oraxen.utils.VersionUtil;
 import io.th0rgal.oraxen.utils.actions.ClickAction;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
@@ -28,6 +33,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Transformation;
@@ -47,6 +53,7 @@ public class FurnitureMechanic extends Mechanic {
     public static final NamespacedKey ROOT_KEY = new NamespacedKey(OraxenPlugin.get(), "root");
     public static final NamespacedKey ORIENTATION_KEY = new NamespacedKey(OraxenPlugin.get(), "orientation");
     public static final NamespacedKey EVOLUTION_KEY = new NamespacedKey(OraxenPlugin.get(), "evolution");
+    public static final NamespacedKey STAGE_INDEX_KEY = new NamespacedKey(OraxenPlugin.get(), "stage_index");
     public static final NamespacedKey BARRIER_KEY = new NamespacedKey(OraxenPlugin.get(), "barriers");
 
     private final int hardness;
@@ -61,6 +68,8 @@ public class FurnitureMechanic extends Mechanic {
     private boolean hasSeatYaw;
     private final Drop drop;
     private final EvolvingFurniture evolvingFurniture;
+    private final List<GrowthStage> growthStages;  // NEW: Inline growth stages
+    private final int initialStageIndex;           // NEW: Initial stage when placed
     private final LightMechanic light;
     private final String modelEngineID;
     private final String placedItemId;
@@ -95,11 +104,10 @@ public class FurnitureMechanic extends Mechanic {
     public enum FurnitureType {
         ITEM_FRAME, GLOW_ITEM_FRAME, DISPLAY_ENTITY;//, ARMOR_STAND;
 
-        private static final List<EntityType> furnitureEntityWithoutDisplay = List.of(EntityType.ITEM_FRAME, EntityType.GLOW_ITEM_FRAME, EntityType.ARMOR_STAND);
-        private static final List<EntityType> furnitureEntityWithDisplay = List.of(EntityType.ITEM_FRAME, EntityType.GLOW_ITEM_FRAME, EntityType.ARMOR_STAND, EntityType.ITEM_DISPLAY);
-
-        public static List<EntityType> furnitureEntity() {
-            return OraxenPlugin.supportsDisplayEntities ? furnitureEntityWithDisplay : furnitureEntityWithoutDisplay;
+        public static List<Class<? extends Entity>> furnitureEntityClasses() {
+            List<Class<? extends Entity>> list = new ArrayList<>(List.of(ItemFrame.class, GlowItemFrame.class, ArmorStand.class));
+            if (OraxenPlugin.supportsDisplayEntities) list.add(ItemDisplay.class);
+            return list;
         }
 
         public static FurnitureType getType(String type) {
@@ -182,12 +190,44 @@ public class FurnitureMechanic extends Mechanic {
             if (hasSeatYaw) seatYaw = (float) seatSection.getDouble("yaw");
         } else hasSeat = false;
 
-        ConfigurationSection evoSection = section.getConfigurationSection("evolution");
-        evolvingFurniture = evoSection != null ? new EvolvingFurniture(getItemID(), evoSection) : null;
-        if (evolvingFurniture != null) ((FurnitureFactory) getFactory()).registerEvolution();
-
         ConfigurationSection dropSection = section.getConfigurationSection("drop");
         drop = dropSection != null ? Drop.createDrop(FurnitureFactory.getInstance().toolTypes, dropSection, getItemID()) : new Drop(new ArrayList<>(), false, false, getItemID());
+
+        // NEW: Parse inline growth stages (alternative to separate items for each stage)
+        List<?> stagesList = section.getList("stages");
+        if (stagesList != null && !stagesList.isEmpty()) {
+            growthStages = new ArrayList<>();
+            for (Object stageObj : stagesList) {
+                if (stageObj instanceof Map<?, ?> stageMap) {
+                    // Convert Map to ConfigurationSection-like structure
+                    ConfigurationSection stageSection = section.createSection("_temp_stage_" + growthStages.size());
+                    for (Map.Entry<?, ?> entry : stageMap.entrySet()) {
+                        stageSection.set(entry.getKey().toString(), entry.getValue());
+                    }
+                    // Pass the item ID for proper drop fallback (avoids NPE from empty sourceID)
+                    growthStages.add(new GrowthStage(stageSection, drop, getItemID()));
+                    section.set("_temp_stage_" + (growthStages.size() - 1), null); // Clean up temp section
+                }
+            }
+            initialStageIndex = section.getInt("initial_stage", 0);
+            evolvingFurniture = null; // Don't use legacy evolution when stages are defined
+            if (!growthStages.isEmpty()) ((FurnitureFactory) getFactory()).registerEvolution();
+        } else {
+            growthStages = null;
+            initialStageIndex = 0;
+            // Legacy: single evolution section
+            ConfigurationSection evoSection = section.getConfigurationSection("evolution");
+            evolvingFurniture = evoSection != null ? new EvolvingFurniture(getItemID(), evoSection) : null;
+            if (evolvingFurniture != null) {
+                ((FurnitureFactory) getFactory()).registerEvolution();
+                // Deprecation warning for legacy pattern
+                if (evolvingFurniture.getNextStage() != null) {
+                    Logs.logWarning("Furniture '" + getItemID() + "' uses legacy 'next_stage' evolution.");
+                    Logs.logWarning("Consider migrating to inline 'stages' for better performance (no entity recreation).");
+                    Logs.logWarning("See: https://docs.oraxen.com/mechanics/furniture/evolution#inline-stages", true);
+                }
+            }
+        }
 
         ConfigurationSection limitedPlacingSection = section.getConfigurationSection("limited_placing");
         limitedPlacing = limitedPlacingSection != null ? new LimitedPlacing(limitedPlacingSection) : null;
@@ -336,12 +376,70 @@ public class FurnitureMechanic extends Mechanic {
         return drop;
     }
 
+    /**
+     * Returns whether this furniture has any evolution capability (legacy or staged).
+     */
     public boolean hasEvolution() {
-        return evolvingFurniture != null;
+        return evolvingFurniture != null || hasGrowthStages();
     }
 
+    /**
+     * Returns the legacy evolution config (single next_stage style).
+     * Returns null if using the new staged evolution system.
+     */
     public EvolvingFurniture getEvolution() {
         return evolvingFurniture;
+    }
+
+    /**
+     * Returns whether this furniture uses the new inline growth stages system.
+     */
+    public boolean hasGrowthStages() {
+        return growthStages != null && !growthStages.isEmpty();
+    }
+
+    /**
+     * Returns the list of growth stages for staged evolution.
+     * Returns null if using legacy evolution or no evolution.
+     */
+    public List<GrowthStage> getGrowthStages() {
+        return growthStages;
+    }
+
+    /**
+     * Returns a specific growth stage by index.
+     * @param index The stage index
+     * @return The GrowthStage, or null if index is out of bounds
+     */
+    public GrowthStage getGrowthStage(int index) {
+        if (growthStages == null || index < 0 || index >= growthStages.size()) {
+            return null;
+        }
+        return growthStages.get(index);
+    }
+
+    /**
+     * Returns the initial stage index when this furniture is first placed.
+     */
+    public int getInitialStageIndex() {
+        return initialStageIndex;
+    }
+
+    /**
+     * Returns the total number of growth stages.
+     */
+    public int getStageCount() {
+        return growthStages != null ? growthStages.size() : 0;
+    }
+
+    /**
+     * Returns whether the given stage index is the final stage (no more evolution).
+     */
+    public boolean isFinalStage(int stageIndex) {
+        if (growthStages == null) return true;
+        if (stageIndex >= growthStages.size() - 1) return true;
+        GrowthStage stage = growthStages.get(stageIndex);
+        return !stage.hasEvolution();
     }
 
     public boolean isRotatable() {
@@ -429,7 +527,7 @@ public class FurnitureMechanic extends Mechanic {
                     interaction.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
                     frame.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
                 }
-                if (light.hasLightLevel()) light.createBlockLight(block);
+                createInitialLight(block, entity);
             }
         } else if (entity instanceof ItemDisplay itemDisplay) {
             setItemDisplayData(itemDisplay, item, yaw, displayEntityProperties, facing);
@@ -442,12 +540,23 @@ public class FurnitureMechanic extends Mechanic {
                             ? location.clone().subtract(0, 0.5 * displayEntityProperties.getScale().y(), 0) : location;
 
             if (hasBarriers()) setBarrierHitbox(entity, barrierLoc, yaw);
-            else if (hasSeat() && interaction != null) {
-                UUID seatUuid = spawnSeat(location.getBlock(), hasSeatYaw ? seatYaw : yaw);
-                interaction.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
-                itemDisplay.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
+            else {
+                if (hasSeat() && interaction != null) {
+                    UUID seatUuid = spawnSeat(location.getBlock(), hasSeatYaw ? seatYaw : yaw);
+                    interaction.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
+                    itemDisplay.getPersistentDataContainer().set(SEAT_KEY, DataType.UUID, seatUuid);
+                }
+                createInitialLight(location.getBlock(), entity);
             }
-            if (light.hasLightLevel()) light.createBlockLight(location.getBlock());
+        }
+        
+        // Apply initial stage model for staged furniture
+        // The base item shows the "seed" texture, but we need to swap to stage0's model
+        if (hasGrowthStages()) {
+            GrowthStage initialStage = getGrowthStage(initialStageIndex);
+            if (initialStage != null && initialStage.getModelKey() != null && !initialStage.getModelKey().isEmpty()) {
+                setFurnitureItemModel(entity, getItemID(), initialStage.getModelKey());
+            }
         }
     }
 
@@ -480,6 +589,8 @@ public class FurnitureMechanic extends Mechanic {
         pdc.set(FURNITURE_KEY, PersistentDataType.STRING, getItemID());
         pdc.set(BARRIER_KEY, DataType.asList(BlockLocation.dataType), barriers);
         if (hasEvolution()) pdc.set(EVOLUTION_KEY, PersistentDataType.INTEGER, 0);
+        // NEW: Set initial stage index for staged evolution
+        if (hasGrowthStages()) pdc.set(STAGE_INDEX_KEY, PersistentDataType.INTEGER, initialStageIndex);
         if (isStorage() && getStorage().getStorageType() == StorageMechanic.StorageType.STORAGE) {
             pdc.set(StorageMechanic.STORAGE_KEY, DataType.ITEM_STACK_ARRAY, new ItemStack[]{});
         }
@@ -506,6 +617,7 @@ public class FurnitureMechanic extends Mechanic {
             transform.getScale().set(properties.getScale());
         } else transform.getScale().set(isFixed ? new Vector3f(0.5f, 0.5f, 0.5f) : new Vector3f(1f, 1f, 1f));
 
+        // Apply translation offset if specified
         if (properties.hasTranslation()) {
             transform.getTranslation().set(properties.getTranslation());
         }
@@ -557,7 +669,21 @@ public class FurnitureMechanic extends Mechanic {
             data.set(ROOT_KEY, PersistentDataType.STRING, new BlockLocation(location.clone()).toString());
             data.set(ORIENTATION_KEY, PersistentDataType.FLOAT, yaw);
             data.set(BASE_ENTITY_KEY, DataType.UUID, entity.getUniqueId());
-            if (light.hasLightLevel()) light.createBlockLight(block);
+        }
+        
+        // For toggle light mechanics with barriers, use updateAllBarrierBlocks to handle all barriers collectively
+        // This prevents lights from adjacent barriers from being incorrectly removed
+        ToggleLightMechanic toggleLight = getToggleLightMechanic();
+        if (toggleLight != null && (toggleLight.hasToggleLight() || toggleLight.getBaseLightLevel() > 0)) {
+            toggleLight.updateAllBarrierBlocks(this, entity);
+        } else {
+            // Fallback to per-barrier light creation for regular light mechanics
+            // This is safe because LightMechanic.createBlockLight doesn't remove lights first
+            for (Location barrierLocation : barrierLocations) {
+                createInitialLight(barrierLocation.getBlock(), entity);
+            }
+            // Also create light at base entity location for regular light mechanics
+            createInitialLight(entity.getLocation().getBlock(), entity);
         }
     }
 
@@ -589,6 +715,74 @@ public class FurnitureMechanic extends Mechanic {
         }
     }
 
+    // Track which legacy fallback warnings have been logged to avoid spam
+    private static final Set<String> loggedLegacyWarnings = new HashSet<>();
+
+    /**
+     * Swaps the item model of a furniture entity to a different model key.
+     * Uses the item_model component (1.21.2+) or falls back to legacy item lookup.
+     * 
+     * @param entity The furniture base entity
+     * @param itemId The base item ID (e.g., "weed_seed")
+     * @param modelKey The model key from Pack.models (e.g., "stage2"), or null to reset to base model
+     */
+    public static void setFurnitureItemModel(Entity entity, String itemId, @Nullable String modelKey) {
+        ItemStack furnitureItem = getFurnitureItem(entity);
+        if (furnitureItem == null || !furnitureItem.hasItemMeta()) return;
+        
+        if (VersionUtil.atOrAbove("1.21.2")) {
+            // Use item_model component for efficient model swap
+            ItemMeta itemMeta = furnitureItem.getItemMeta();
+            NamespacedKey modelNsKey = modelKey != null 
+                    ? new NamespacedKey("oraxen", itemId + "/" + modelKey)
+                    : new NamespacedKey("oraxen", itemId);
+            itemMeta.setItemModel(modelNsKey);
+            furnitureItem.setItemMeta(itemMeta);
+            setFurnitureItem(entity, furnitureItem);
+        } else {
+            // Fallback for older versions: try to find a legacy item with naming convention
+            // Pattern: itemId_modelKey (e.g., "weed_seed_stage0")
+            if (modelKey == null) {
+                // Reset to base item
+                ItemStack baseItem = OraxenItems.getOptionalItemById(itemId)
+                        .map(b -> b.build().clone())
+                        .orElse(null);
+                if (baseItem != null) {
+                    ItemUtils.editItemMeta(baseItem, meta -> meta.setDisplayName(""));
+                    setFurnitureItem(entity, baseItem);
+                }
+                return;
+            }
+            
+            // Try legacy naming patterns: itemId_modelKey, itemId + modelKey
+            String[] legacyPatterns = {
+                itemId + "_" + modelKey,           // weed_seed_stage0
+                itemId + modelKey,                 // weed_seedstage0 (unlikely but check)
+                itemId.replace("_seed", "_plant_" + modelKey), // weed_plant_stage0 (common pattern)
+                itemId.replace("_seeds", "_" + modelKey)       // grape_stage0 (if seeds → stages)
+            };
+            
+            for (String legacyId : legacyPatterns) {
+                ItemStack legacyItem = OraxenItems.getOptionalItemById(legacyId)
+                        .map(b -> b.build().clone())
+                        .orElse(null);
+                if (legacyItem != null) {
+                    ItemUtils.editItemMeta(legacyItem, meta -> meta.setDisplayName(""));
+                    setFurnitureItem(entity, legacyItem);
+                    return;
+                }
+            }
+            
+            // No legacy item found - log warning once per unique combo
+            String warningKey = itemId + "/" + modelKey;
+            if (!loggedLegacyWarnings.contains(warningKey)) {
+                loggedLegacyWarnings.add(warningKey);
+                Logs.logWarning("Inline stages for '" + itemId + "' require MC 1.21.2+ for model swapping.");
+                Logs.logWarning("On older versions, create legacy items (e.g., '" + itemId + "_" + modelKey + "') or upgrade.", true);
+            }
+        }
+    }
+
     public void removeSolid(Entity baseEntity, Location rootLocation, float orientation) {
         if (hasLimitedPlacing() && limitedPlacing.isRoof() && furnitureType == FurnitureType.DISPLAY_ENTITY)
             orientation = orientation - 180;
@@ -603,7 +797,7 @@ public class FurnitureMechanic extends Mechanic {
 
             block.setType(Material.AIR);
             new CustomBlockData(location.getBlock(), OraxenPlugin.get()).clear();
-            if (light.hasLightLevel()) light.removeBlockLight(block);
+            removeLight(block);
         }
         removeBaseEntity(baseEntity);
     }
@@ -615,12 +809,12 @@ public class FurnitureMechanic extends Mechanic {
     private void removeBaseEntity(Entity baseEntity) {
         if (baseEntity == null) return;
         removeSubEntitiesOfFurniture(baseEntity);
-        if (light.hasLightLevel()) light.removeBlockLight(baseEntity.getLocation().getBlock());
+        removeLight(baseEntity.getLocation().getBlock());
         if (!baseEntity.isDead()) baseEntity.remove();
     }
 
     private void removeSubEntitiesOfFurniture(Entity baseEntity) {
-        if (light.hasLightLevel()) light.removeBlockLight(baseEntity.getLocation().getBlock());
+        removeLight(baseEntity.getLocation().getBlock());
         if (hasSeat) removeFurnitureSeat(baseEntity.getLocation());
 
         if (OraxenPlugin.supportsDisplayEntities) {
@@ -875,5 +1069,70 @@ public class FurnitureMechanic extends Mechanic {
 
     public LightMechanic getLight() {
         return light;
+    }
+
+    private void createInitialLight(Block block, Entity baseEntity) {
+        ToggleLightMechanic toggleLight = getToggleLightMechanic();
+        if (toggleLight != null) {
+            int lightLevel;
+            if (baseEntity != null && toggleLight.hasToggleLight()) {
+                // Check toggle state from entity if available
+                lightLevel = toggleLight.isToggledOn(baseEntity) ? toggleLight.getToggleLightLevel() : toggleLight.getBaseLightLevel();
+            } else {
+                // Use base light level for initial placement
+                lightLevel = toggleLight.getBaseLightLevel();
+            }
+            // Only update if toggle light has functionality or light level > 0
+            if (toggleLight.hasToggleLight() || lightLevel > 0) {
+                toggleLight.updateLight(block, lightLevel);
+                return;
+            }
+        }
+        // Fallback to regular light mechanic if toggle-light not found or has no light
+        if (light.hasLightLevel()) {
+            light.createBlockLight(block);
+        }
+    }
+
+    private ToggleLightMechanic getToggleLightMechanic() {
+        ToggleLightMechanicFactory factory = ToggleLightMechanicFactory.getInstance();
+        if (factory == null) {
+            MechanicFactory mechanicFactory = MechanicsManager.getMechanicFactory("toggle_light");
+            if (mechanicFactory instanceof ToggleLightMechanicFactory) {
+                factory = (ToggleLightMechanicFactory) mechanicFactory;
+            } else {
+                return null;
+            }
+        }
+        return factory != null ? factory.getMechanic(getItemID()) : null;
+    }
+
+    private void removeLight(Block block) {
+        ToggleLightMechanic toggleLight = getToggleLightMechanic();
+        if (toggleLight != null && (toggleLight.hasToggleLight() || toggleLight.getBaseLightLevel() > 0)) {
+            toggleLight.updateLight(block, 0);
+        } else if (light.hasLightLevel()) {
+            light.removeBlockLight(block);
+        }
+    }
+
+    public void refreshLight(Entity baseEntity) {
+        if (baseEntity == null) return;
+        
+        ToggleLightMechanic toggleLight = getToggleLightMechanic();
+        if (toggleLight == null || (!toggleLight.hasToggleLight() && toggleLight.getBaseLightLevel() <= 0)) {
+            return;
+        }
+
+        if (hasBarriers(baseEntity)) {
+            // updateAllBarrierBlocks now handles both barrier blocks and base entity location
+            toggleLight.updateAllBarrierBlocks(this, baseEntity);
+        } else {
+            Block block = baseEntity.getLocation().getBlock();
+            int lightLevel = toggleLight.hasToggleLight() && toggleLight.isToggledOn(baseEntity) 
+                    ? toggleLight.getToggleLightLevel() 
+                    : toggleLight.getBaseLightLevel();
+            toggleLight.updateLight(block, lightLevel);
+        }
     }
 }

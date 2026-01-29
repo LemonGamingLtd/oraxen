@@ -99,10 +99,11 @@ public class NoteBlockMechanicListener implements Listener {
 
         @EventHandler(priority = EventPriority.HIGHEST)
         public void onNoteblockPowered(final GenericGameEvent event) {
-            Block block = event.getLocation().getBlock();
-
-            Location eLoc = block.getLocation();
-            if (!isLoaded(event.getLocation()) || !isLoaded(eLoc)) return;
+            Location eventLoc = event.getLocation();
+            if (eventLoc == null || !isLoaded(eventLoc)) return;
+            
+            Block block = eventLoc.getBlock();
+            if (block == null) return;
 
             // This GameEvent only exists in 1.19
             // If server is 1.18 check if its there and if not return
@@ -111,7 +112,7 @@ public class NoteBlockMechanicListener implements Listener {
             if (event.getEvent() != GameEvent.NOTE_BLOCK_PLAY) return;
             if (block.getType() != Material.NOTE_BLOCK) return;
             NoteBlock data = (NoteBlock) block.getBlockData().clone();
-            OraxenPlugin.get().getScheduler().runRegionTaskLater(eLoc, () -> block.setBlockData(data, false), 1L);
+            SchedulerUtil.runAtLocationLater(block.getLocation(), 1L, () -> block.setBlockData(data, false));
         }
 
         public void updateAndCheck(Block block) {
@@ -253,14 +254,18 @@ public class NoteBlockMechanicListener implements Listener {
     // If block is not a custom block, play the correct sound according to the below block or default
     @EventHandler(priority = EventPriority.NORMAL)
     public void onNotePlayed(final NotePlayEvent event) {
-        if (event.getInstrument() != Instrument.PIANO) event.setCancelled(true);
-        else {
-            if (instrumentMap.isEmpty()) instrumentMap = getInstrumentMap();
-            String blockType = event.getBlock().getRelative(BlockFace.DOWN).getType().toString().toLowerCase(Locale.ROOT);
-            Instrument fakeInstrument = instrumentMap.entrySet().stream().filter(e -> e.getValue().contains(blockType)).map(Map.Entry::getKey).findFirst().orElse(Instrument.PIANO);
-            // This is deprecated, but seems to be without reason
-            event.setInstrument(fakeInstrument);
+        if (event.getInstrument() != Instrument.PIANO) {
+            event.setCancelled(true);
+            return;
         }
+        String blockType = event.getBlock().getRelative(BlockFace.DOWN).getType().toString().toLowerCase(Locale.ROOT);
+        Instrument fakeInstrument = INSTRUMENT_MAP.entrySet().stream()
+                .filter(e -> e.getValue().contains(blockType))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(Instrument.PIANO);
+        // This is deprecated, but seems to be without reason
+        event.setInstrument(fakeInstrument);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -276,9 +281,14 @@ public class NoteBlockMechanicListener implements Listener {
             if (result != ExplosionResult.DESTROY && result != ExplosionResult.DESTROY_WITH_DECAY) return;
         }
         for (Block block : new HashSet<>(event.blockList())) {
-            if (!OraxenBlocks.isOraxenNoteBlock(block)) continue;
-            OraxenBlocks.remove(block.getLocation(), null);
-            event.blockList().remove(block);
+            NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
+            if (mechanic == null) continue;
+            if (mechanic.isBlastResistant()) {
+                event.blockList().remove(block);
+            } else {
+                OraxenBlocks.remove(block.getLocation(), null);
+                event.blockList().remove(block);
+            }
         }
     }
 
@@ -289,9 +299,14 @@ public class NoteBlockMechanicListener implements Listener {
             if (result != ExplosionResult.DESTROY && result != ExplosionResult.DESTROY_WITH_DECAY) return;
         }
         for (Block block : new HashSet<>(event.blockList())) {
-            if (!OraxenBlocks.isOraxenNoteBlock(block)) continue;
-            OraxenBlocks.remove(block.getLocation(), null);
-            event.blockList().remove(block);
+            NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
+            if (mechanic == null) continue;
+            if (mechanic.isBlastResistant()) {
+                event.blockList().remove(block);
+            } else {
+                OraxenBlocks.remove(block.getLocation(), null);
+                event.blockList().remove(block);
+            }
         }
     }
 
@@ -427,7 +442,7 @@ public class NoteBlockMechanicListener implements Listener {
                 if (mechanic.isDirectional() && !mechanic.getDirectional().isParentBlock())
                     mechanic = mechanic.getDirectional().getParentMechanic();
 
-                final long period = mechanic.getHardness();
+                final long hardness = mechanic.getHardness();
                 double modifier = 1;
                 if (mechanic.getDrop().canDrop(tool)) {
                     modifier *= 0.4;
@@ -435,7 +450,8 @@ public class NoteBlockMechanicListener implements Listener {
                     if (diff >= 1)
                         modifier *= Math.pow(0.9, diff);
                 }
-                return (long) (period * modifier);
+                long period = (long) (hardness * modifier);
+                return period == 0 && mechanic.hasHardness() ? 1 : period;
             }
         };
     }
@@ -506,12 +522,12 @@ public class NoteBlockMechanicListener implements Listener {
     }
 
     // Used to determine what instrument to use when playing a note depending on below block
-    public static Map<Instrument, List<String>> instrumentMap = new HashMap<>();
+    private static final Map<Instrument, List<String>> INSTRUMENT_MAP = createInstrumentMap();
 
-    private static Map<Instrument, List<String>> getInstrumentMap() {
-        Map<Instrument, List<String>> map = new HashMap<>();
+    private static Map<Instrument, List<String>> createInstrumentMap() {
+        Map<Instrument, List<String>> map = new EnumMap<>(Instrument.class);
         map.put(Instrument.BELL, List.of("gold_block"));
-        map.put(Instrument.BASS_DRUM, Arrays.asList("stone", "netherrack", "bedrock", "observer", "coral", "obsidian", "anchor", "quartz"));
+        map.put(Instrument.BASS_DRUM, List.of("stone", "netherrack", "bedrock", "observer", "coral", "obsidian", "anchor", "quartz"));
         map.put(Instrument.FLUTE, List.of("clay"));
         map.put(Instrument.CHIME, List.of("packed_ice"));
         map.put(Instrument.GUITAR, List.of("wool"));
@@ -523,9 +539,8 @@ public class NoteBlockMechanicListener implements Listener {
         map.put(Instrument.BANJO, List.of("hay_bale"));
         map.put(Instrument.PLING, List.of("glowstone"));
         map.put(Instrument.BASS_GUITAR, List.of("wood"));
-        map.put(Instrument.SNARE_DRUM, Arrays.asList("sand", "gravel", "concrete_powder", "soul_soil"));
-        map.put(Instrument.STICKS, Arrays.asList("glass", "sea_lantern", "beacon"));
-
-        return map;
+        map.put(Instrument.SNARE_DRUM, List.of("sand", "gravel", "concrete_powder", "soul_soil"));
+        map.put(Instrument.STICKS, List.of("glass", "sea_lantern", "beacon"));
+        return Collections.unmodifiableMap(map);
     }
 }

@@ -1,3 +1,5 @@
+context
+
 # Default resources
 src/main/resources/pack/optifine
 src/main/resources/pack/sounds
@@ -157,6 +159,7 @@ local.properties
 .settings/
 .loadpath
 .recommenders
+.project
 
 # External tool builders
 .externalToolBuilders/
@@ -212,3 +215,12 @@ local.properties
 .sts4-cache/
 
 # Based on gitignore.io work
+
+# Test server for schema generation
+test-server/
+
+# Claude Code
+.claude/secrets.json
+secrets.json
+
+.mizius

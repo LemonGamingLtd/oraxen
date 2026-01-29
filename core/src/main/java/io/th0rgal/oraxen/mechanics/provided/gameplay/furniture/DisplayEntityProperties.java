@@ -1,6 +1,5 @@
 package io.th0rgal.oraxen.mechanics.provided.gameplay.furniture;
 
-import io.th0rgal.oraxen.utils.VectorUtils;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Display;
@@ -50,25 +49,17 @@ public class DisplayEntityProperties {
         shadowRadius = (float) configSection.getDouble("shadow_radius");
         displayWidth = (float) configSection.getDouble("displayWidth", 0);
         displayHeight = (float) configSection.getDouble("displayHeight", 0);
-        if (configSection.isString("scale")) {
-            scale = VectorUtils.parseVector3f(configSection.getString("scale"));
-        } else if (configSection.isConfigurationSection("scale")) {
+        if (configSection.isConfigurationSection("scale"))
             scale = new Vector3f((float) configSection.getDouble("scale.x", 1.0),
-                (float) configSection.getDouble("scale.y", 1.0),
-                (float) configSection.getDouble("scale.z", 1.0));
-        } else {
-            scale = null;
-        }
+                    (float) configSection.getDouble("scale.y", 1.0),
+                    (float) configSection.getDouble("scale.z", 1.0));
+        else scale = null;
 
-        if (configSection.isString("translation")) {
-            translation = VectorUtils.parseVector3f(configSection.getString("translation"));
-        } else if (configSection.isConfigurationSection("translation")) {
+        if (configSection.isConfigurationSection("translation"))
             translation = new Vector3f((float) configSection.getDouble("translation.x", 0.0),
-                (float) configSection.getDouble("translation.y", 0.0),
-                (float) configSection.getDouble("translation.z", 0.0));
-        } else {
-            translation = null;
-        }
+                    (float) configSection.getDouble("translation.y", 0.0),
+                    (float) configSection.getDouble("translation.z", 0.0));
+        else translation = null;
 
         if (viewRange == 0) viewRange = null;
         if (interpolationDuration == 0) interpolationDuration = null;
@@ -191,14 +182,15 @@ public class DisplayEntityProperties {
         if (!(entity instanceof ItemDisplay itemDisplay)) return false;
         itemDisplay.setItemDisplayTransform(displayTransform);
         itemDisplay.setBillboard(Objects.requireNonNullElse(trackingRotation, Display.Billboard.FIXED));
-        itemDisplay.setBrightness(Objects.requireNonNullElse(brightness, new Display.Brightness(0, 0)));
+        itemDisplay.setBrightness(Objects.requireNonNullElse(brightness, new Display.Brightness(0,0)));
         itemDisplay.setShadowRadius(Objects.requireNonNullElse(shadowRadius, 0f));
         itemDisplay.setShadowStrength(Objects.requireNonNullElse(shadowStrength, 0f));
         itemDisplay.setViewRange(Objects.requireNonNullElse(viewRange, 0));
         itemDisplay.setInterpolationDuration(Objects.requireNonNullElse(interpolationDuration, 0));
         itemDisplay.setInterpolationDelay(Objects.requireNonNullElse(interpolationDelay, 0));
-        itemDisplay.getTransformation().getScale().set(Objects.requireNonNullElse(scale, new Vector3f(1, 1, 1)));
-        itemDisplay.getTransformation().getTranslation().set(Objects.requireNonNullElse(translation, new Vector3f(0, 0, 0)));
+        itemDisplay.getTransformation().getScale().set(Objects.requireNonNullElse(scale, new Vector3f(1,1,1)));
+        itemDisplay.getTransformation().getTranslation().set(Objects.requireNonNullElse(translation, new Vector3f(0,0,0)));
+
         return true;
     }
 }

@@ -6,12 +6,15 @@ import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.light.LightMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.limitedplacing.LimitedPlacing;
+import io.th0rgal.oraxen.mechanics.provided.gameplay.storage.StorageMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingMechanic;
+import io.th0rgal.oraxen.utils.actions.ClickAction;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import ltd.lemongaming.packgenerator.annotation.CustomModel;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,15 +25,20 @@ public class StringBlockMechanic extends Mechanic {
     private final Drop drop;
     private final BlockSounds blockSounds;
     private final LimitedPlacing limitedPlacing;
+    private final StorageMechanic storage;
     private String model;
     private final int hardness;
     private final LightMechanic light;
+    private final boolean blastResistant;
+    private final boolean immovable;
+    private final boolean isFalling;
 
     private final List<String> randomPlaceBlock;
     private final SaplingMechanic saplingMechanic;
     private final boolean isTall;
 
     private final BlockLockerMechanic blockLocker;
+    private final List<ClickAction> clickActions;
 
     @SuppressWarnings("unchecked")
     public StringBlockMechanic(MechanicFactory mechanicFactory, ConfigurationSection section) {
@@ -51,6 +59,9 @@ public class StringBlockMechanic extends Mechanic {
         isTall = section.getBoolean("is_tall", false);
         hardness = section.getInt("hardness", 1);
         light = new LightMechanic(section);
+        blastResistant = section.getBoolean("blast_resistant", false);
+        immovable = section.getBoolean("immovable", false);
+        isFalling = section.getBoolean("is_falling", false);
 
         ConfigurationSection dropSection = section.getConfigurationSection("drop");
         drop = dropSection != null ? Drop.createDrop(StringBlockMechanicFactory.getInstance().toolTypes, dropSection, getItemID()) : new Drop(new ArrayList<>(), false, false, getItemID());
@@ -64,11 +75,16 @@ public class StringBlockMechanic extends Mechanic {
         ConfigurationSection limitedSection = section.getConfigurationSection("limited_placing");
         limitedPlacing = limitedSection != null ? new LimitedPlacing(limitedSection) : null;
 
+        ConfigurationSection storageSection = section.getConfigurationSection("storage");
+        storage = storageSection != null ? new StorageMechanic(storageSection) : null;
+
         ConfigurationSection blockSoundsSection = section.getConfigurationSection("block_sounds");
         blockSounds = blockSoundsSection != null ? new BlockSounds(blockSoundsSection) : null;
 
         ConfigurationSection blockLockerSection = section.getConfigurationSection("blocklocker");
         blockLocker = blockLockerSection != null ? new BlockLockerMechanic(blockLockerSection) : null;
+
+        clickActions = ClickAction.parseList(section);
     }
 
     public String getModel(ConfigurationSection section) {
@@ -122,8 +138,48 @@ public class StringBlockMechanic extends Mechanic {
         return randomPlaceBlock;
     }
 
+    public boolean isBlastResistant() {
+        return blastResistant;
+    }
+
+    public boolean isImmovable() {
+        return immovable;
+    }
+
     public BlockLockerMechanic getBlockLocker() {
         return blockLocker;
+    }
+
+    public boolean isFalling() {
+        return isFalling;
+    }
+
+    public boolean isStorage() {
+        return storage != null;
+    }
+
+    public StorageMechanic getStorage() {
+        return storage;
+    }
+
+    public boolean hasClickActions() {
+        return !clickActions.isEmpty();
+    }
+
+    public List<ClickAction> getClickActions() {
+        return clickActions;
+    }
+
+    public void runClickActions(final Player player) {
+        for (final ClickAction action : clickActions) {
+            if (action.canRun(player)) {
+                action.performActions(player);
+            }
+        }
+    }
+
+    public boolean isInteractable() {
+        return hasClickActions() || isStorage();
     }
 
 }

@@ -3,6 +3,7 @@ package io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock;
 import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.mechanics.Mechanic;
+import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.stringblock.sapling.SaplingListener;
@@ -19,6 +20,8 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Tripwire;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -64,11 +67,9 @@ public class StringBlockMechanicFactory extends MechanicFactory {
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockMechanicListener.StringBlockMechanicPaperListener());
         if (!VersionUtil.isPaperServer() || !NMSHandlers.isTripwireUpdatesDisabled())
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new StringBlockMechanicListener.StringBlockMechanicPhysicsListener());
+        // Warn if Paper config is not set (auto-update happens earlier in plugin enable)
         if (VersionUtil.isPaperServer() && VersionUtil.atOrAbove("1.20.1") && !NMSHandlers.isTripwireUpdatesDisabled()) {
-            Logs.logError("Papers block-updates.disable-tripwire-updates is not enabled.");
-            Logs.logWarning("It is recommended to enable this setting for improved performance and prevent bugs with tripwires");
-            Logs.logWarning("Otherwise Oraxen needs to listen to very taxing events, which also introduces some bugs");
-            Logs.logWarning("You can enable this setting in ServerFolder/config/paper-global.yml", true);
+            Logs.logWarning("Papers block-updates.disable-tripwire-updates is not enabled, restart may be required");
         }
     }
 
@@ -124,8 +125,9 @@ public class StringBlockMechanicFactory extends MechanicFactory {
     public Mechanic parse(ConfigurationSection itemMechanicConfiguration) {
         StringBlockMechanic mechanic = new StringBlockMechanic(this, itemMechanicConfiguration);
         if (!Range.between(1, 127).contains(mechanic.getCustomVariation())) {
-            Logs.logError("The custom variation of the block " + mechanic.getItemID() + " is not between 1 and 127!");
+            Logs.logError("The custom_variation of " + mechanic.getItemID() + " is " + mechanic.getCustomVariation() + ", but must be between 1 and 127!");
             Logs.logWarning("The item has failed to build for now to prevent bugs and issues.");
+            return null;
         }
         variants.add(getBlockstateVariantName(mechanic.getCustomVariation()),
                 getModelJson(mechanic.getModel(itemMechanicConfiguration.getParent()
@@ -192,7 +194,7 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 
     public void registerSaplingMechanic() {
         if (sapling) return;
-        if (saplingTask != null) saplingTask.getAdaptedTask().cancel();
+        if (saplingTask != null) saplingTask.cancel();
 
         // Disabled for abit as OraxenItems.getItems() here
         // Dont register if there is no sapling in configs
@@ -206,7 +208,38 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 //        if (saplingList.isEmpty()) return;
 
         saplingTask = new SaplingTask(saplingGrowthCheckDelay);
-        saplingTask.runTaskTimer(0, saplingGrowthCheckDelay);
+        MechanicsManager.registerTask(getMechanicID(), saplingTask.start(0, saplingGrowthCheckDelay));
         sapling = true;
+    }
+
+    @Override
+    public @Nullable String getMechanicCategory() {
+        return "gameplay";
+    }
+
+    @Override
+    public @Nullable String getMechanicDescription() {
+        return "Creates custom blocks using tripwire states (up to 127 variations)";
+    }
+
+    @Override
+    public @NotNull List<MechanicConfigProperty> getConfigSchema() {
+        return List.of(
+                MechanicConfigProperty.integer("custom_variation", "Unique variation ID (1-127)", 1, 1, 127),
+                MechanicConfigProperty.string("model", "Block model path"),
+                MechanicConfigProperty.decimal("hardness", "Block break hardness", 1.0, 0.0),
+                MechanicConfigProperty.integer("light", "Light level emitted (0-15)", 0, 0, 15),
+                MechanicConfigProperty.bool("blast_resistant", "Whether block resists explosions", false),
+                MechanicConfigProperty.bool("immovable", "Whether block resists pistons", false),
+                MechanicConfigProperty.object("drop", "Drop configuration when broken", Map.of(
+                        "silktouch", MechanicConfigProperty.bool("silktouch", "Require silk touch", false),
+                        "loots", MechanicConfigProperty.list("loots", "List of loot entries")
+                )),
+                MechanicConfigProperty.object("sapling", "Sapling growth configuration", Map.of(
+                        "min_light", MechanicConfigProperty.integer("min_light", "Minimum light level to grow", 9, 0, 15),
+                        "grow_block", MechanicConfigProperty.string("grow_block", "Block ID when grown"),
+                        "grow_chance", MechanicConfigProperty.decimal("grow_chance", "Growth chance per check", 0.1, 0.0, 1.0)
+                ))
+        );
     }
 }

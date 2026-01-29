@@ -1,13 +1,22 @@
 package io.th0rgal.oraxen.mechanics.provided.misc.armor_effects;
 
 import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.mechanics.ConfigProperty;
 import io.th0rgal.oraxen.mechanics.Mechanic;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
+import io.th0rgal.oraxen.mechanics.MechanicInfo;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
+import io.th0rgal.oraxen.mechanics.PropertyType;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.scheduler.BukkitTask;
 
+@MechanicInfo(
+        category = "misc",
+        description = "Applies potion effects while wearing armor pieces"
+)
 public class ArmorEffectsFactory extends MechanicFactory {
+
+    @ConfigProperty(type = PropertyType.LIST, description = "List of potion effects to apply")
+    public static final String PROP_EFFECTS = "effects";
 
     private static ArmorEffectsFactory instance;
     private ArmorEffectsTask armorEffectTask;
@@ -28,10 +37,9 @@ public class ArmorEffectsFactory extends MechanicFactory {
     public Mechanic parse(ConfigurationSection configurationSection) {
         Mechanic mechanic = new ArmorEffectsMechanic(this, configurationSection);
         addToImplemented(mechanic);
-        if (armorEffectTask != null) armorEffectTask.getAdaptedTask().cancel();
+        if (armorEffectTask != null) armorEffectTask.cancel();
         armorEffectTask = new ArmorEffectsTask();
-        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = armorEffectTask.runTaskTimer(0, delay);
-        MechanicsManager.registerTask(instance.getMechanicID(), task);
+        MechanicsManager.registerTask(getMechanicID(), armorEffectTask.start(0, delay));
         return mechanic;
     }
 

@@ -15,6 +15,7 @@ public enum Settings {
     PLUGIN_LANGUAGE("Plugin.language"),
     KEEP_UP_TO_DATE("Plugin.keep_this_up_to_date"),
     REPAIR_COMMAND_ORAXEN_DURABILITY("Plugin.commands.repair.oraxen_durability_only"),
+    AUTO_UPDATE_PAPER_CONFIG("Plugin.auto_update_paper_config"),
     GENERATE_DEFAULT_ASSETS("Plugin.generation.default_assets"),
     GENERATE_DEFAULT_CONFIGS("Plugin.generation.default_configs"),
     FORMAT_INVENTORY_TITLES("Plugin.formatting.inventory_titles"),
@@ -37,6 +38,8 @@ public enum Settings {
     UNICODE_COMPLETIONS("Glyphs.unicode_completions"),
     GLYPH_HOVER_TEXT("Glyphs.chat_hover_text"),
 
+    // Text Effects (shader-based)
+    TEXT_EFFECTS_ENABLED("TextEffects.enabled"),
 
     // Chat
     CHAT_HANDLER("Chat.chat_handler"),
@@ -102,8 +105,17 @@ public enum Settings {
     GENERATE_MODEL_BASED_ON_TEXTURE_PATH("Pack.generation.auto_generated_models_follow_texture_path"),
     COMPRESSION("Pack.generation.compression"),
     PROTECTION("Pack.generation.protection"),
-    APPEARANCE_ITEM_MODEL("Pack.generation.appearance.item_model"),
-    APPEARANCE_PREDICATES("Pack.generation.appearance.predicates"),
+    // 1.21.4+ appearance systems (can be combined)
+    APPEARANCE_ITEM_PROPERTIES("Pack.generation.appearance.item_properties"),
+    APPEARANCE_MODEL_DATA_IDS("Pack.generation.appearance.model_data_ids"),
+    APPEARANCE_MODEL_DATA_FLOAT("Pack.generation.appearance.model_data_float"),
+    APPEARANCE_GENERATE_PREDICATES("Pack.generation.appearance.generate_predicates"),
+    // Deprecated keys (kept for backward compatibility with older configs)
+    @Deprecated APPEARANCE_MODEL_DATA_FLOAT_LEGACY("Pack.generation.appearance.model_data_float_legacy"),
+    @Deprecated APPEARANCE_MODE("Pack.generation.appearance.mode"),
+    @Deprecated APPEARANCE_FORCE_PREDICATES("Pack.generation.appearance.force_predicates"),
+    @Deprecated APPEARANCE_ITEM_MODEL("Pack.generation.appearance.item_model"),
+    @Deprecated APPEARANCE_PREDICATES("Pack.generation.appearance.predicates"),
     COMMENT("Pack.generation.comment"),
     MERGE_DUPLICATE_FONTS("Pack.import.merge_duplicate_fonts"),
     MERGE_DUPLICATES("Pack.import.merge_duplicates"),
@@ -122,6 +134,8 @@ public enum Settings {
     SEND_PACK_DELAY("Pack.dispatch.delay"),
     SEND_PACK_MANDATORY("Pack.dispatch.mandatory"),
     SEND_PACK_PROMPT("Pack.dispatch.prompt"),
+    DISABLE_MOVEMENT_ON_LOAD("Pack.dispatch.disable_movement_on_load"),
+    DISABLE_DAMAGE_ON_LOAD("Pack.dispatch.disable_damage_on_load"),
     SEND_JOIN_MESSAGE("Pack.dispatch.join_message.enabled"),
     JOIN_MESSAGE_DELAY("Pack.dispatch.join_message.delay"),
 

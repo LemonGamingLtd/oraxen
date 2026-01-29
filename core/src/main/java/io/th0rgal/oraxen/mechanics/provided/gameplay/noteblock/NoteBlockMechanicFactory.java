@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenBlocks;
 import io.th0rgal.oraxen.mechanics.Mechanic;
+import io.th0rgal.oraxen.mechanics.MechanicConfigProperty;
 import io.th0rgal.oraxen.mechanics.MechanicFactory;
 import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.noteblock.directional.DirectionalBlock;
@@ -21,7 +22,8 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.type.NoteBlock;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -68,11 +70,9 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new NoteBlockMechanicListener.NoteBlockMechanicPaperListener());
         if (!VersionUtil.isPaperServer() || !NMSHandlers.isNoteblockUpdatesDisabled())
             MechanicsManager.registerListeners(OraxenPlugin.get(), getMechanicID(), new NoteBlockMechanicListener.NoteBlockMechanicPhysicsListener());
+        // Warn if Paper config is not set (auto-update happens earlier in plugin enable)
         if (VersionUtil.isPaperServer() && VersionUtil.atOrAbove("1.20.1") && !NMSHandlers.isNoteblockUpdatesDisabled()) {
-            Logs.logError("Papers block-updates.disable-noteblock-updates is not enabled.");
-            Logs.logWarning("It is recommended to enable this setting for improved performance and prevent bugs with noteblocks");
-            Logs.logWarning("Otherwise Oraxen needs to listen to very taxing events, which also introduces some bugs");
-            Logs.logWarning("You can enable this setting in ServerFolder/config/paper-global.yml", true);
+            Logs.logWarning("Papers block-updates.disable-noteblock-updates is not enabled, restart may be required");
         }
     }
 
@@ -185,7 +185,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
     public Mechanic parse(ConfigurationSection itemMechanicConfiguration) {
         NoteBlockMechanic mechanic = new NoteBlockMechanic(this, itemMechanicConfiguration);
         if (!Range.between(0, 775).contains(mechanic.getCustomVariation())) {
-            Logs.logError("The custom variation of the block " + mechanic.getItemID() + " is not between 0 and 775!");
+            Logs.logError("The custom_variation of " + mechanic.getItemID() + " is " + mechanic.getCustomVariation() + ", but must be between 0 and 775!");
             Logs.logWarning("The item has failed to build for now to prevent bugs and issues.");
             return null;
         }
@@ -251,7 +251,7 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     public void registerFarmBlock() {
         if (farmBlock) return;
-        if (farmBlockTask != null) farmBlockTask.getAdaptedTask().cancel();
+        if (farmBlockTask != null) farmBlockTask.cancel();
 
 //        // Dont register if there is no farmblocks in configs
 //        List<String> farmblockList = new ArrayList<>();
@@ -264,9 +264,51 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 //        if (farmblockList.isEmpty()) return;
 
         farmBlockTask = new FarmBlockTask(farmBlockCheckDelay);
-        io.th0rgal.oraxen.api.scheduler.AdaptedTask task = farmBlockTask.runTaskTimer(0, farmBlockCheckDelay);
-        MechanicsManager.registerTask(getMechanicID(), task);
+        MechanicsManager.registerTask(getMechanicID(), farmBlockTask.start(0, farmBlockCheckDelay));
         farmBlock = true;
     }
 
+    @Override
+    public @Nullable String getMechanicCategory() {
+        return "gameplay";
+    }
+
+    @Override
+    public @Nullable String getMechanicDescription() {
+        return "Creates custom blocks using noteblock states (up to 775 variations)";
+    }
+
+    @Override
+    public @NotNull List<MechanicConfigProperty> getConfigSchema() {
+        return List.of(
+                MechanicConfigProperty.integer("custom_variation", "Unique variation ID (0-775)", 0, 0, 775),
+                MechanicConfigProperty.string("model", "Block model path"),
+                MechanicConfigProperty.decimal("hardness", "Block break hardness", 1.0, 0.0),
+                MechanicConfigProperty.integer("light", "Light level emitted (0-15)", 0, 0, 15),
+                MechanicConfigProperty.bool("canIgnite", "Whether the block can be ignited", false),
+                MechanicConfigProperty.bool("blast_resistant", "Whether block resists explosions", false),
+                MechanicConfigProperty.bool("immovable", "Whether block resists pistons", false),
+                MechanicConfigProperty.object("drop", "Drop configuration when broken", Map.of(
+                        "silktouch", MechanicConfigProperty.bool("silktouch", "Require silk touch", false),
+                        "loots", MechanicConfigProperty.list("loots", "List of loot entries")
+                )),
+                MechanicConfigProperty.object("directional", "Directional block configuration", Map.of(
+                        "parent_block", MechanicConfigProperty.string("parent_block", "Parent block ID"),
+                        "y_block", MechanicConfigProperty.string("y_block", "Y-axis variant ID"),
+                        "x_block", MechanicConfigProperty.string("x_block", "X-axis variant ID"),
+                        "z_block", MechanicConfigProperty.string("z_block", "Z-axis variant ID")
+                )),
+                MechanicConfigProperty.object("farmblock", "Farm block configuration", Map.of(
+                        "moisture", MechanicConfigProperty.integer("moisture", "Moisture level", 0, 0),
+                        "dry_block", MechanicConfigProperty.string("dry_block", "Block ID when dried")
+                )),
+                MechanicConfigProperty.object("log_strip", "Log stripping configuration", Map.of(
+                        "drop", MechanicConfigProperty.object("drop", "Item dropped on strip", Map.of(
+                                "oraxen_item", MechanicConfigProperty.string("oraxen_item", "Oraxen item ID"),
+                                "minecraft_type", MechanicConfigProperty.string("minecraft_type", "Vanilla item type")
+                        )),
+                        "stripped_log", MechanicConfigProperty.string("stripped_log", "Stripped log block ID")
+                ))
+        );
+    }
 }

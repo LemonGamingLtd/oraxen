@@ -13,20 +13,32 @@ plugins {
     id("io.github.goooler.shadow") version "8.1.8"
 }
 
+
 class NMSVersion(val nmsVersion: String, val serverVersion: String)
 
 infix fun String.toNms(that: String): NMSVersion = NMSVersion(this, that)
-val SUPPORTED_VERSIONS: List<NMSVersion> = listOf(
+val isCI = System.getenv("CI") != null
+val SUPPORTED_VERSIONS: List<NMSVersion> = listOfNotNull(
     //"v1_20_R1" toNms "1.20.1-R0.1-SNAPSHOT",
     //"v1_20_R2" toNms "1.20.2-R0.1-SNAPSHOT",
     //"v1_20_R3" toNms "1.20.4-R0.1-SNAPSHOT",
     //"v1_20_R4" toNms "1.20.6-R0.1-SNAPSHOT",
     //"v1_21_R1" toNms "1.21.1-R0.1-SNAPSHOT",
     //"v1_21_R2" toNms "1.21.3-R0.1-SNAPSHOT",
-    "v1_21_R3" toNms "1.21.4-R0.1-SNAPSHOT",
+    //"v1_21_R3" toNms "1.21.4-R0.1-SNAPSHOT",
     "v1_21_R4" toNms "1.21.5-R0.1-SNAPSHOT",
     "v1_21_R5" toNms "1.21.8-R0.1-SNAPSHOT", // also for 1.21.7
-    "v1_21_R6" toNms "1.21.10-R0.1-SNAPSHOT"
+    "v1_21_R6_old" toNms "1.21.10-R0.1-SNAPSHOT", // 1.21.9 and 1.21.10 (uses ResourceLocation)
+    "v1_21_R6" toNms "1.21.11-R0.1-SNAPSHOT", // 1.21.11 Paper (Mojang-mapped)
+    // Skip Spigot modules in CI - requires BuildTools to install Spigot artifacts to local Maven
+    if (!isCI) "v1_20_R4_spigot" toNms "1.20.6-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R1_spigot" toNms "1.21.1-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R2_spigot" toNms "1.21.3-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R3_spigot" toNms "1.21.4-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R4_spigot" toNms "1.21.5-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R5_spigot" toNms "1.21.8-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R6_old_spigot" toNms "1.21.10-R0.1-SNAPSHOT" else null,
+    if (!isCI) "v1_21_R6_spigot" toNms "1.21.11-R0.1-SNAPSHOT" else null
 )
 
 val compiled = (project.findProperty("oraxen_compiled")?.toString() ?: "true").toBoolean()
@@ -37,8 +49,6 @@ val spigotPluginPath = project.findProperty("oraxen_spigot_plugin_path")?.toStri
 val pluginVersion: String by project
 group = "io.th0rgal"
 version = pluginVersion
-
-
 
 allprojects {
     apply(plugin = "java")
@@ -72,16 +82,25 @@ allprojects {
             }
         }
         maven("https://repo.oraxen.com/releases") {
-            content { includeGroup("io.th0rgal") } // protectionlib
+            content {
+                includeGroup("io.th0rgal") // protectionlib
+                includeGroup("md.thomas.hopper") // hopper
+            }
         }
         maven("https://repo.oraxen.com/snapshots") {
-            content { includeGroup("io.th0rgal") }
+            content {
+                includeGroup("io.th0rgal")
+                includeGroup("md.thomas.hopper")
+            }
         }
         maven("https://repo.auxilor.io/repository/maven-public/") {
             content { includeGroup("com.willfp") } // EcoItems, eco, libreforge
         }
         maven("https://maven.enginehub.org/repo/") {
-            content { includeGroupAndSubgroups("com.sk89q.worldedit") } // world edit
+            content {
+                includeGroupAndSubgroups("com.sk89q.worldedit") // world edit
+                includeGroupAndSubgroups("org.enginehub") // WorldEdit transitive dependencies (lin-bus-bom, etc)
+            }
         }
         maven("https://nexus.phoenixdevt.fr/repository/maven-public/") {
             content {
@@ -95,6 +114,12 @@ allprojects {
         maven("https://repo.codemc.io/repository/maven-releases/") {
             content { includeGroup("com.github.retrooper") }
         }
+        maven("https://repo.skriptlang.org/releases") {
+            content { includeGroup("com.github.SkriptLang") } // Skript
+        }
+        maven("https://jitpack.io") {
+            content { includeGroupByRegex("com\\.github\\..*") }
+        }
         mavenCentral()
         maven {
             credentials {
@@ -106,16 +131,19 @@ allprojects {
     }
 }
 
+
 dependencies {
     implementation(project(path = ":core"))
     SUPPORTED_VERSIONS.forEach { implementation(project(path = ":${it.nmsVersion}", configuration = "reobf")) }
 }
+
 
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
+
 
 tasks.withType(xyz.jpenilla.runtask.task.AbstractRun::class) {
     javaLauncher = javaToolchains.launcherFor {
@@ -155,8 +183,9 @@ tasks {
     runServer {
         downloadPlugins {
             hangar("ProtocolLib", "5.4.0")
+            hangar("CommandAPI", "11.1.0")
         }
-        minecraftVersion("1.21.10")
+        minecraftVersion("1.21.11")
         jvmArgs("-Dcom.mojang.eula.agree=true")
     }
 
@@ -183,7 +212,6 @@ tasks {
         relocate("org.intellij.lang.annotations", "io.th0rgal.oraxen.shaded.intellij.annotations")
         relocate("com.udojava.evalex", "io.th0rgal.oraxen.shaded.udojava.evalex")
         relocate("javax.json", "io.th0rgal.oraxen.shaded.javax.json")
-        relocate("fr.euphyllia.energie", "io.th0rgal.oraxen.shaded.energie")
 
         manifest {
             attributes(
@@ -202,7 +230,9 @@ tasks {
                             "os.version"
                         )
                     }",
-                    "Compiled" to (project.findProperty("oraxen_compiled")?.toString() ?: "true").toBoolean()
+                    "Compiled" to (project.findProperty("oraxen_compiled")?.toString() ?: "true").toBoolean(),
+                    // Tell Paper not to remap this plugin - v1_21_R6 module uses Mojang mappings
+                    "paperweight-mappings-namespace" to "mojang"
                 )
             )
         }
@@ -214,29 +244,32 @@ tasks {
     build.get().dependsOn(shadowJar)
 }
 
+
 bukkit {
     load = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.POSTWORLD
     main = "io.th0rgal.oraxen.OraxenPlugin"
     version = pluginVersion
     name = "Oraxen"
     apiVersion = "1.18"
+    foliaSupported = true
     authors = listOf("th0rgal", "https://github.com/oraxen/oraxen/blob/master/CONTRIBUTORS.md")
     softDepend = listOf(
         "CommandAPI",
-        "ProtocolLib", "PacketEvents",
+        "ProtocolLib",
+        "packetevents",
         "LightAPI", "PlaceholderAPI", "MythicMobs", "MMOItems", "MythicCrucible", "MythicMobs", "BossShopPro",
         "CrateReloaded", "ItemBridge", "WorldEdit", "WorldGuard", "Towny", "Factions", "Lands", "PlotSquared",
-        "NBTAPI", "ModelEngine", "ViaBackwards", "HuskClaims", "HuskTowns", "BentoBox"
+        "NBTAPI", "ModelEngine", "ViaBackwards", "HuskClaims", "HuskTowns", "BentoBox", "Skript", "Iris"
     )
     depend = listOf("PackGenerator")
     loadBefore = listOf("Realistic_World")
-    foliaSupported = true
     permissions.create("oraxen.command") {
         description = "Allows the player to use the /oraxen command"
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
     }
     libraries = oraxenLibs.bundles.libraries.bukkit.get().map { it.toString() }
 }
+
 
 if (spigotPluginPath != null) {
     tasks {
@@ -258,6 +291,54 @@ if (spigotPluginPath != null) {
 
         // Make the build task depend on all individual copy tasks
         named<DefaultTask>("build").get().dependsOn(copyJarTask)
+    }
+}
+
+// Headless pack generation task
+// Usage: ./gradlew generatePack -PmcVersion=1.21.4 [-PserverType=paper] [-PoutputDir=./build/pack] [-PconfigDir=./my-configs]
+tasks.register<Exec>("generatePack") {
+    group = "pack"
+    description = "Generate resource pack using headless server mode. Use -PmcVersion=X.XX.X to specify version."
+    dependsOn("shadowJar")
+
+    val mcVersion = project.findProperty("mcVersion")?.toString() ?: ""
+    val serverType = project.findProperty("serverType")?.toString() ?: "paper"
+    val outputDir = project.findProperty("outputDir")?.toString() ?: "${project.layout.buildDirectory.get()}/pack"
+    val configDir = project.findProperty("configDir")?.toString() ?: ""
+    val timeout = project.findProperty("packTimeout")?.toString() ?: "300"
+    val verbose = project.findProperty("verbose")?.toString()?.toBoolean() ?: false
+    val keepServer = project.findProperty("keepServer")?.toString()?.toBoolean() ?: false
+
+    val scriptPath = "${project.projectDir}/scripts/headless-pack-gen.sh"
+    val jarPath = "${project.layout.buildDirectory.get()}/libs/oraxen-${pluginVersion}.jar"
+
+    executable = "bash"
+    val args = mutableListOf(
+        scriptPath,
+        "--version", mcVersion,
+        "--server", serverType,
+        "--output", outputDir,
+        "--oraxen-jar", jarPath,
+        "--timeout", timeout
+    )
+
+    if (configDir.isNotEmpty()) {
+        args.addAll(listOf("--config-dir", configDir))
+    }
+    if (verbose) {
+        args.add("--verbose")
+    }
+    if (keepServer) {
+        args.add("--keep-server")
+    }
+
+    setArgs(args)
+
+    doFirst {
+        if (mcVersion.isEmpty()) {
+            throw GradleException("Minecraft version is required. Use -PmcVersion=X.XX.X (e.g., -PmcVersion=1.21.4)")
+        }
+        println("Generating resource pack for $serverType $mcVersion...")
     }
 }
 

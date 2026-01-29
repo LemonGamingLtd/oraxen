@@ -8,12 +8,29 @@
 legendary_hammer:
   displayname: "<gradient:#F06966:#FAD6A6>Legendary Hammer"
   material: DIAMOND_PICKAXE
+  lore:
+    - "<#ff455b>» <#D5D6D8>Strike your enemies with a devastating blow"
+    - "<#ff455b>» <#D5D6D8>On the 15th hit, the player is launched forward"
   Pack:
     generate_model: false
     model: default/legendary_hammer
   Mechanics:
     durability:
       value: 10000 #diamond sword is 1561
+    knockback_strike:
+      required_hits: 15                     # How many hits required to trigger knockback
+      knockback_horizontal: 2.0             # Horizontal knockback force (forward/backward)
+      knockback_vertical: 1.2               # Vertical knockback force (upward jump)
+      reset_time: 80                        # Hit counter reset time in ticks (20 ticks = 1 second)  
+    # show_counter: false                   # (It can be added, but it's not currently added.) Show hit counter in action bar
+      play_sound: true                      # Play sound effect on trigger
+      sound_type: ENTITY_ENDER_DRAGON_HURT  # Sound type to play
+      sound_volume: 1.5                     # Sound volume level
+      sound_pitch: 0.8                      # Sound pitch (lower = deeper sound)
+      particle:
+        type: DUST                          # Particle type (DUST = colored dust)
+        count: 200                          # Number of particles to spawn
+        spread: 0.5                         # Particle spread radius in blocks
 
 earth_hammer:
   displayname: "<gradient:#89E59D:#37C6BA>Earth Hammer"
@@ -123,12 +140,18 @@ lotr_pike:
     - "<#6f737d>» <#D5D6D8>Hold right-click to charge"
     - "<#6f737d>» <#D5D6D8>Release to lunge forward"
   AttributeModifiers:
-    # Base melee stats when not using the lunge ability
-    - { attribute: ATTACK_DAMAGE, amount: 5, operation: 0, slot: HAND }
-    - { attribute: ATTACK_SPEED, amount: 1.4, operation: 0, slot: HAND }
+    # Low base melee damage - the spear is meant for lunge attacks, not regular swings
+    - { attribute: ATTACK_DAMAGE, amount: 2, operation: 0, slot: HAND }
+    - { attribute: ATTACK_SPEED, amount: 1.2, operation: 0, slot: HAND }
   Pack:
     generate_model: false
     model: default/lotrpikeinactive
+    # Optional: You can also define models here using Pack.models
+    # These are auto-registered as oraxen:lotr_pike/active, oraxen:lotr_pike/frame0, etc.
+    # models:
+    #   active: default/lotrpikeactive
+    #   frame0: default/lotrpike_frame0
+    #   frame1: default/lotrpike_frame1
   Components:
     # Cooldown between lunge attacks (1.5 seconds)
     use_cooldown:
@@ -138,23 +161,26 @@ lotr_pike:
     rarity: RARE
   Mechanics:
     spear_lunge:
-      # The active model path (same format as Pack.model)
-      # Oraxen will auto-generate the item model definition for this
+      # The active model path - mechanic handles registration automatically
       active_model: default/lotrpikeactive
       # Intermediate models for smooth animation (in order)
       intermediate_models:
         - default/lotrpike_frame0
         - default/lotrpike_frame1
       smooth_frames: 2          # Number of intermediate frames to use
-      charge_ticks: 24          # 1.2 seconds to fully charge (more time for animation)
-      lunge_velocity: 0.8       # Forward velocity on lunge
-      max_range: 3.5            # Hit detection range in blocks
-      damage: 8.0               # Lunge damage at full charge
-      knockback: 0.6            # Knockback applied to targets
+      charge_ticks: 20          # 1 second to fully charge
+      lunge_velocity: 0.9       # Forward velocity on lunge
+      max_range: 7.0            # Hit detection range in blocks (increased spear reach)
+      damage: 12.0              # Lunge damage at full charge (increased)
+      min_damage: 4.0           # Minimum damage at 0% charge (scales up to 'damage' at 100%)
+      knockback: 1.2            # Knockback applied to targets (doubled)
+      hitbox_radius: 0.6        # Hitbox radius for hit detection (higher = easier to hit off-center, max 5.0)
       min_charge_percent: 0.25  # Minimum charge needed to attack (25%)
-      # Piercing allows hitting multiple targets in a line
-      piercing: false
-      max_targets: 1
+      # Movement while charging
+      charge_slowdown: 0.5      # 50% slower while charging (0.0 = none, 1.0 = frozen)
+      max_hold_ticks: 60        # 3 seconds max hold before auto-cancel to inactive
+      # How many entities can be hit per lunge (set to 1 for single-target)
+      max_targets: 3
       # Visual feedback
       particles:
         enabled: true

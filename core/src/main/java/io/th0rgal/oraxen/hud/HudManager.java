@@ -123,7 +123,7 @@ public class HudManager {
         }
         hudDisplay = translatePlaceholdersForHudDisplay(player, hudDisplay);
         hudDisplay = AdventureUtils.parseLegacy(hudDisplay);
-
+        
         try {
             var component = AdventureUtils.MINI_MESSAGE.deserialize(hudDisplay);
             player.sendActionBar(component);
@@ -138,24 +138,24 @@ public class HudManager {
             Logs.logWarning("[HUD] Task already enabled");
             return;
         }
-        if (hudTask != null) hudTask.getAdaptedTask().cancel();
+        if (hudTask != null) hudTask.cancel();
         if (hudUpdateTime == 0) {
             Logs.logWarning("[HUD] hudUpdateTime is 0, skipping task registration");
             return;
         }
         if (huds.isEmpty()) {
-            Logs.logWarning("[HUD] No HUDs loaded, skipping task registration");
+            Logs.logInfo("No HUDs loaded, skipping task registration");
             return;
         }
 
         hudTask = new HudTask();
-        hudTask.runTaskTimer(0, hudUpdateTime);
+        hudTask.start(0, hudUpdateTime);
         hudTaskEnabled = true;
     }
 
     public void unregisterTask() {
         if (!hudTaskEnabled) return;
-        if (hudTask != null) hudTask.getAdaptedTask().cancel();
+        if (hudTask != null) hudTask.cancel();
         hudTaskEnabled = false;
     }
 

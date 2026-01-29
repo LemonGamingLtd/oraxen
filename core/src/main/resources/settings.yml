@@ -5,6 +5,7 @@ Plugin:
   commands:
     repair:
       oraxen_durability_only: false # will not repair vanilla items if set to true
+  auto_update_paper_config: true # Auto-update paper-global.yml to disable block updates for custom blocks
   generation:
     default_assets: true
     default_configs: true
@@ -40,6 +41,17 @@ Glyphs:
   emoji_list_permission_only: true # will only show emojis player has permission to use if set to true
   unicode_completions: true # Whether glyph tab-completions shows unicodes or glyph-pølaceholders
   chat_hover_text: "<glyph_placeholder>" # The text that will be shown when hovering over a glyph in chat
+
+# Shader-based text effects (rainbow, wave, shake, etc.)
+# These effects apply to any text using a color encoding detected by shaders.
+# Default encoding (alpha_lsb) preserves the base color by using RGB low bits.
+# Effect definitions and GLSL snippets live in text_effects.yml.
+# Text effects compatible with 1.21.11+
+TextEffects:
+  enabled: true # Master toggle for all text effects
+  shader:
+    template: auto # auto, effects_only, animated_only
+    encoding: alpha_lsb # Encoding strategy for text effects
 
 Chat:
   # If glyphs do not show up in chat, try setting this to LEGACY
@@ -84,12 +96,42 @@ Pack:
     generate: true # Unlike Plugin.generation.default_assets, this will enable/disable all pack generation
     # List of file extensions that will not be included in the final zipped ResourcePack
     excluded_file_extensions: []
-    # Which systems to use for item appearance (1.21.4+ only, pre-1.21.4 always uses predicates)
+    # Item appearance systems (1.21.4+).
+    #
+    # 1.21.4+ supports multiple appearance systems that can be COMBINED:
+    # - item_properties: uses minecraft:item_model component
+    # - model_data_ids: uses custom_model_data.strings[0] with minecraft:select
+    # - model_data_float: uses custom_model_data.floats[0] with minecraft:range_dispatch
+    #
+    # Pre-1.21.4 does NOT support item definitions, so Oraxen always falls back to
+    # legacy predicate overrides (assets/minecraft/models/item/*.json) + integer CustomModelData.
     appearance:
-      # Generate item model definitions (assets/oraxen/items/*.json) - items get the item_model component
-      item_model: true
-      # Generate predicate overrides in base item models (assets/minecraft/models/item/*.json) - items get custom_model_data
-      predicates: false
+      # ITEM_PROPERTIES (default: true)
+      # Uses the minecraft:item_model component with Oraxen ids (oraxen:<item_id>).
+      # Generates assets/oraxen/items/<item_id>.json.
+      # Can be combined with model_data_ids or model_data_float.
+      item_properties: true
+
+      # MODEL_DATA_IDS (default: false)
+      # Uses custom_model_data.strings[0] = "oraxen:<item_id>"
+      # Generates assets/minecraft/items/<material>.json using minecraft:select.
+      # Good for plugins that read custom_model_data but want stable string identifiers.
+      # Cannot be combined with model_data_float (they write to the same file).
+      model_data_ids: false
+
+      # MODEL_DATA_FLOAT (default: false)
+      # Uses custom_model_data.floats[0] = <Pack.custom_model_data as float>
+      # Generates assets/minecraft/items/<material>.json using minecraft:range_dispatch.
+      # Also sets integer CustomModelData on items for plugin compatibility.
+      # Cannot be combined with model_data_ids (they write to the same file).
+      model_data_float: false
+
+      # GENERATE_PREDICATES (default: false)
+      # Generates legacy predicate overrides (assets/minecraft/models/item/*.json).
+      # NOT NEEDED on 1.21.4+ since Minecraft uses the new item definition system.
+      # Only enable if you need compatibility with external tools that read legacy JSON files.
+      # Pre-1.21.4 always generates predicates regardless of this setting.
+      generate_predicates: false
     verify_pack_files: true # Checks all textures and models to make sure they abide by valid Resourcepack formatting
     fix_force_unicode_glyphs: true # Fixes glyphs not being shown when Force Unicode is enabled
     texture_slicer: true # Slices default-texture overrides into new 1.20.2 format
@@ -141,6 +183,8 @@ Pack:
     send_on_reload: true
     delay: -1
     mandatory: true
+    disable_movement_on_load: true # If true, players will not be able to move while the pack is loading
+    disable_damage_on_load: true # If true, players will not take damage while the pack is loading
     prompt: "<#fa4943>Accept the pack to enjoy a full <b><gradient:#9055FF:#13E2DA>Oraxen</b><#fa4943> experience"
     join_message:
       enabled: false

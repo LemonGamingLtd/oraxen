@@ -48,8 +48,10 @@ public class NMSHandlers {
             try {
                 handler = (NMSHandler) Class.forName("io.th0rgal.oraxen.nms." + version + ".NMSHandler")
                         .getConstructor().newInstance();
-                Logs.logSuccess("Version " + version + " has been detected.");
-                Logs.logInfo("Oraxen will use the NMSHandler for this version.");
+                if (Settings.DEBUG.toBool()) {
+                    Logs.logSuccess("Version " + version + " has been detected.");
+                    Logs.logInfo("Oraxen will use the NMSHandler for this version.");
+                }
                 Bukkit.getPluginManager().registerEvents(new NMSListeners(), OraxenPlugin.get());
                 return;
             } catch (ClassNotFoundException | InvocationTargetException | InstantiationException
@@ -71,5 +73,9 @@ public class NMSHandlers {
 
     public static boolean isNoteblockUpdatesDisabled() {
         return handler != null && handler.noteblockUpdatesDisabled();
+    }
+
+    public static boolean isChorusPlantUpdatesDisabled() {
+        return handler != null && handler.chorusPlantUpdatesDisabled();
     }
 }

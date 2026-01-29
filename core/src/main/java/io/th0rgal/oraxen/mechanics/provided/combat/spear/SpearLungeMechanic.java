@@ -36,7 +36,9 @@ public class SpearLungeMechanic extends Mechanic {
     private final double lungeVelocity;
     private final double maxRange;
     private final double damage;
+    private final double minDamage;
     private final double knockback;
+    private final double hitboxRadius;
     private final int smoothFrames;
     private final NamespacedKey[] intermediateModelKeys;
 
@@ -51,9 +53,12 @@ public class SpearLungeMechanic extends Mechanic {
     private final Sound hitSound;
 
     // Gameplay modifiers
-    private final boolean piercing;
     private final int maxTargets;
     private final double minChargePercent;
+
+    // Movement and timing modifiers
+    private final double chargeSlowdown; // 0.0 to 1.0, percentage of speed reduction while charging
+    private final int maxHoldTicks; // Max time to hold before auto-cancel (without attack)
 
     public SpearLungeMechanic(MechanicFactory mechanicFactory, ConfigurationSection section) {
         super(mechanicFactory, section);
@@ -71,13 +76,23 @@ public class SpearLungeMechanic extends Mechanic {
         this.lungeVelocity = section.getDouble("lunge_velocity", 0.6);
         this.maxRange = section.getDouble("max_range", 3.5);
         this.damage = section.getDouble("damage", 6.0);
+        // Minimum lunge damage (applied at 0% charge; still requires min_charge_percent to attack)
+        this.minDamage = Math.max(0.0, Math.min(section.getDouble("min_damage", 0.0), this.damage));
         this.knockback = section.getDouble("knockback", 0.5);
+        // Ray trace "width" for hit detection. Higher values make it easier to hit targets off-center.
+        this.hitboxRadius = Math.max(0.0, Math.min(section.getDouble("hitbox_radius", 0.5), 5.0));
         this.smoothFrames = section.getInt("smooth_frames", 0);
 
         // Gameplay modifiers
-        this.piercing = section.getBoolean("piercing", false);
         this.maxTargets = section.getInt("max_targets", 1);
         this.minChargePercent = section.getDouble("min_charge_percent", 0.3);
+
+        // Movement and timing modifiers
+        // charge_slowdown: 0.0 = no slowdown, 0.5 = 50% slower, 1.0 = cannot move
+        this.chargeSlowdown = Math.max(0.0, Math.min(1.0, section.getDouble("charge_slowdown", 0.4)));
+        // max_hold_ticks: how long player can hold before auto-cancel (default 3
+        // seconds = 60 ticks)
+        this.maxHoldTicks = section.getInt("max_hold_ticks", 60);
 
         // Parse intermediate models for smooth animation
         if (smoothFrames > 0 && section.isList("intermediate_models")) {
@@ -129,6 +144,14 @@ public class SpearLungeMechanic extends Mechanic {
         try {
             return Particle.valueOf(name.toUpperCase());
         } catch (IllegalArgumentException e) {
+            // Invalid particle name, use fallback silently
+            return Particle.CRIT;
+        } catch (IncompatibleClassChangeError e) {
+            // Handle version compatibility issues with Particle.valueOf()
+            return Particle.CRIT;
+        } catch (Exception e) {
+            // Unexpected error - log with stack trace for diagnostics
+            e.printStackTrace();
             return Particle.CRIT;
         }
     }
@@ -138,7 +161,15 @@ public class SpearLungeMechanic extends Mechanic {
             NamespacedKey key = NamespacedKey.minecraft(name.toLowerCase());
             Sound sound = Registry.SOUNDS.get(key);
             return sound != null ? sound : Sound.ENTITY_PLAYER_ATTACK_SWEEP;
+        } catch (IllegalArgumentException e) {
+            // Invalid sound name, use fallback silently
+            return Sound.ENTITY_PLAYER_ATTACK_SWEEP;
+        } catch (IncompatibleClassChangeError e) {
+            // Handle version compatibility issues with Sound registry access
+            return Sound.ENTITY_PLAYER_ATTACK_SWEEP;
         } catch (Exception e) {
+            // Unexpected error - log with stack trace for diagnostics
+            e.printStackTrace();
             return Sound.ENTITY_PLAYER_ATTACK_SWEEP;
         }
     }
@@ -185,16 +216,20 @@ public class SpearLungeMechanic extends Mechanic {
         return damage;
     }
 
+    public double getMinDamage() {
+        return minDamage;
+    }
+
     public double getKnockback() {
         return knockback;
     }
 
-    public int getSmoothFrames() {
-        return smoothFrames;
+    public double getHitboxRadius() {
+        return hitboxRadius;
     }
 
-    public boolean isPiercing() {
-        return piercing;
+    public int getSmoothFrames() {
+        return smoothFrames;
     }
 
     public int getMaxTargets() {
@@ -203,6 +238,23 @@ public class SpearLungeMechanic extends Mechanic {
 
     public double getMinChargePercent() {
         return minChargePercent;
+    }
+
+    /**
+     * Returns the movement slowdown factor while charging (0.0 to 1.0).
+     * 0.0 means no slowdown, 0.5 means 50% speed reduction, 1.0 means cannot move.
+     */
+    public double getChargeSlowdown() {
+        return chargeSlowdown;
+    }
+
+    /**
+     * Returns the maximum number of ticks the player can hold the charge
+     * before it auto-cancels (without performing an attack).
+     * Default is 60 ticks (3 seconds).
+     */
+    public int getMaxHoldTicks() {
+        return maxHoldTicks;
     }
 
     @Nullable

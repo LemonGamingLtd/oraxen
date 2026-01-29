@@ -6,6 +6,7 @@ import io.th0rgal.oraxen.commands.CommandsManager;
 import io.th0rgal.oraxen.compatibilities.CompatibilitiesManager;
 import io.th0rgal.oraxen.config.*;
 import io.th0rgal.oraxen.font.FontManager;
+import io.th0rgal.oraxen.hopper.OraxenHopper;
 import io.th0rgal.oraxen.packets.PacketAdapter;
 import io.th0rgal.oraxen.packets.PacketEventsAdapter;
 import io.th0rgal.oraxen.packets.ProtocolLibAdapter;
@@ -15,14 +16,15 @@ import io.th0rgal.oraxen.mechanics.MechanicsManager;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.furniture.FurnitureFactory;
 import io.th0rgal.oraxen.nms.GlyphHandlers;
 import io.th0rgal.oraxen.nms.NMSHandlers;
+import io.th0rgal.oraxen.pack.dispatch.PackLoadingManager;
 import io.th0rgal.oraxen.pack.generation.ResourcePack;
 import io.th0rgal.oraxen.pack.upload.UploadManager;
 import io.th0rgal.oraxen.recipes.RecipesManager;
 import io.th0rgal.oraxen.sound.SoundManager;
 import io.th0rgal.oraxen.utils.*;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
 import io.th0rgal.oraxen.utils.actions.ClickActionManager;
 import io.th0rgal.oraxen.utils.armorequipevent.ArmorEquipEvent;
-import io.th0rgal.oraxen.utils.breaker.BukkitBreakerSystem;
 import io.th0rgal.oraxen.utils.breaker.PacketEventsBreakerSystem;
 import io.th0rgal.oraxen.utils.breaker.ProtocolLibBreakerSystem;
 import io.th0rgal.oraxen.utils.customarmor.CustomArmorListener;
@@ -30,7 +32,6 @@ import io.th0rgal.oraxen.utils.inventories.InvManager;
 import io.th0rgal.oraxen.utils.logs.Logs;
 import io.th0rgal.protectionlib.ProtectionLib;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
-//import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -55,10 +56,11 @@ public class OraxenPlugin extends JavaPlugin {
     private ClickActionManager clickActionManager;
     private PacketAdapter packetAdapter;
     public static boolean supportsDisplayEntities;
-    private io.th0rgal.oraxen.api.scheduler.SchedulerAdapter scheduler;
 
     public OraxenPlugin() {
         oraxen = this;
+        // Register dependencies with Hopper for auto-download
+        OraxenHopper.register(this);
     }
 
     public static OraxenPlugin get() {
@@ -76,12 +78,15 @@ public class OraxenPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        // CommandAPI.onLoad(BukkitWrapper.createCommandApiConfig(this));
+        // Download dependencies registered with Hopper
+        OraxenHopper.download(this);
+
+        // CommandAPI initialization is currently disabled as CommandAPI 11.0.0 doesn't yet support 1.21.11
+        // CommandAPI.onLoad(new CommandAPIPaperConfig(this).silentLogs(true));
     }
 
     @Override
     public void onEnable() {
-        scheduler = VersionUtil.isFoliaServer() ? new io.th0rgal.oraxen.api.scheduler.FoliaSchedulerAdapter() : new io.th0rgal.oraxen.api.scheduler.SpigotSchedulerAdapter();
         // CommandAPI.onEnable();
         ProtectionLib.init(this);
         audience = BukkitAudiences.create(this);
@@ -92,15 +97,14 @@ public class OraxenPlugin extends JavaPlugin {
 
         if (Settings.KEEP_UP_TO_DATE.toBool())
             new SettingsUpdater().handleSettingsUpdate();
-        new BukkitBreakerSystem().registerListener();
         if (PacketAdapter.isProtocolLibEnabled()) {
-            Logs.logInfo("[OraxenPlugin] ProtocolLib is enabled, using ProtocolLibAdapter");
+            if (Settings.DEBUG.toBool()) Logs.logInfo("ProtocolLib is enabled, using ProtocolLibAdapter");
             packetAdapter = new ProtocolLibAdapter();
-            //new ProtocolLibBreakerSystem().registerListener();
+            new ProtocolLibBreakerSystem().registerListener();
         } else if (PacketAdapter.isPacketEventsEnabled()) {
-            Logs.logInfo("[OraxenPlugin] ProtocolLib is NOT enabled, PacketEvents is enabled, using PacketEventsAdapter");
+            if (Settings.DEBUG.toBool()) Logs.logInfo("PacketEvents is enabled, using PacketEventsAdapter");
             packetAdapter = new PacketEventsAdapter();
-            //new PacketEventsBreakerSystem().registerListener();
+            new PacketEventsBreakerSystem().registerListener();
         } else {
             Logs.logWarning("[OraxenPlugin] Neither ProtocolLib nor PacketEvents is enabled, using EmptyAdapter");
             packetAdapter = new PacketAdapter.EmptyAdapter();
@@ -115,6 +119,12 @@ public class OraxenPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new CustomArmorListener(), this);
         NMSHandlers.setup();
 
+        // Auto-update Paper config for block updates (noteblock, tripwire, chorus)
+        var updatedSettings = PaperConfigUpdater.ensureAllBlockUpdatesDisabled();
+        if (!updatedSettings.isEmpty()) {
+            Logs.logSuccess("Auto-updated paper-global.yml: enabled " + String.join(", ", updatedSettings) + " (restart required)");
+        }
+
         resourcePack = new ResourcePack();
         MechanicsManager.registerNativeMechanics();
         // CustomBlockData.registerListener(this); //Handle this manually
@@ -128,6 +138,7 @@ public class OraxenPlugin extends JavaPlugin {
         hudManager.registerTask();
         hudManager.parsedHudDisplays = hudManager.generateHudDisplays();
         Bukkit.getPluginManager().registerEvents(new ItemUpdater(), this);
+        Bukkit.getPluginManager().registerEvents(new PackLoadingManager(), this);
         resourcePack.generate();
         RecipesManager.load(this);
         invManager = new InvManager();
@@ -147,15 +158,26 @@ public class OraxenPlugin extends JavaPlugin {
     }
 
     private void postLoading() {
-        new Metrics(this, 5371);
+        OraxenMetrics.register(this);
         new LU().l();
-        getScheduler().runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
+        SchedulerUtil.runTask(this, () -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
+
+        // Auto-generate schema in debug mode (useful for CI/CD)
+        if (Settings.DEBUG.toBool()) {
+            SchedulerUtil.runTaskLater(this, 20L, () -> {
+                io.th0rgal.oraxen.utils.schema.SchemaGenerator.generateAndSave();
+            }); // Small delay to ensure everything is loaded
+        }
     }
 
     @Override
     public void onDisable() {
         HandlerList.unregisterAll(this);
         FurnitureFactory.unregisterEvolution();
+
+        // Clean up backpack cosmetic entities to prevent ghost armor stands
+        io.th0rgal.oraxen.mechanics.provided.cosmetic.backpack.BackpackCosmeticManager.getInstance().cleanup();
+
         for (Player player : Bukkit.getOnlinePlayers())
             if (GlyphHandlers.isNms())
                 NMSHandlers.getHandler().glyphHandler().uninject(player);
@@ -229,10 +251,6 @@ public class OraxenPlugin extends JavaPlugin {
 
     public ClickActionManager getClickActionManager() {
         return clickActionManager;
-    }
-
-    public io.th0rgal.oraxen.api.scheduler.SchedulerAdapter getScheduler() {
-        return scheduler;
     }
 
     public PacketAdapter getPacketAdapter() {

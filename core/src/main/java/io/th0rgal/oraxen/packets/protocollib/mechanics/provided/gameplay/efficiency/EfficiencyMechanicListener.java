@@ -11,7 +11,7 @@ import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.api.OraxenItems;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.efficiency.EfficiencyMechanic;
 import io.th0rgal.oraxen.mechanics.provided.gameplay.efficiency.EfficiencyMechanicFactory;
-import org.bukkit.Bukkit;
+import io.th0rgal.oraxen.utils.SchedulerUtil;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -46,14 +46,14 @@ public class EfficiencyMechanicListener extends PacketAdapter {
             type = EnumWrappers.PlayerDigType.SWAP_HELD_ITEMS;
         }
         if (type == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK)
-            OraxenPlugin.get().getScheduler().runEntityTask(player, () ->
+            SchedulerUtil.runForEntity(player, () ->
                     player.addPotionEffect(new PotionEffect(mechanic.getType(),
                             20 * 60 * 5,
                             mechanic.getAmount() - 1,
-                            false, false, false)), null);
+                            false, false, false)), () -> {});
         else
-            OraxenPlugin.get().getScheduler().runEntityTask(player, () ->
-                    player.removePotionEffect(mechanic.getType()), null);
+            SchedulerUtil.runForEntity(player, () ->
+                    player.removePotionEffect(mechanic.getType()), () -> {});
     }
 
 }
